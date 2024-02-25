@@ -1,5 +1,6 @@
 import {PI, Vector2} from "../src/math/index.js";
 import {Circle} from "../src/Shape/index.js";
+import {Polygon} from "../src/Shape/Polygon.js";
 
 const canvas = document.querySelector("canvas");
 const ctx = canvas.getContext("2d");
@@ -14,8 +15,14 @@ const center = new Vector2(canvas.clientWidth, canvas.clientHeight).divideScalar
 const directionLength = 75;
 const direction = new Vector2(0, 0);
 
-const circle1 = new Circle(center, 100, "#ff9800");
-const circle2 = new Circle(center.clone().subtract(new Vector2(50, 0)), 100, "#de1818");
+const circle = new Circle(center.clone().subtract(new Vector2(50, 0)), 100, "#de1818");
+const polygon = new Polygon(center, [
+	new Vector2(0, 0),
+	new Vector2(200, 120),
+	new Vector2(270, 300),
+	new Vector2(100, 500),
+	new Vector2(0, 0),
+], "#ff9800");
 
 /**
  * @param {Vector2} position
@@ -28,13 +35,14 @@ function renderDirection(position) {
 }
 
 /**
+ * @param {Vector2} position
  * @param {Vector2} supportPoint
  */
-function renderSupportPoint(supportPoint) {
+function renderSupportPoint(position, supportPoint) {
 	ctx.fillStyle = "#de1818";
 
 	ctx.beginPath();
-	ctx.arc(supportPoint[0], supportPoint[1], 5, 0, PI * 2);
+	ctx.arc(position[0] + supportPoint[0], position[1] + supportPoint[1], 5, 0, PI * 2);
 	ctx.fill();
 }
 
@@ -58,10 +66,10 @@ function update(frameIndex) {
 function render() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-	circle1.render(ctx);
-	circle2.render(ctx);
-	renderDirection(circle2.getPosition());
-	renderSupportPoint(circle2.getSupportPoint(direction));
+	circle.render(ctx);
+	polygon.render(ctx);
+	renderDirection(polygon.getPosition());
+	renderSupportPoint(polygon.getPosition(), polygon.getSupportPoint(direction));
 }
 
 requestAnimationFrame(loop);
@@ -69,5 +77,5 @@ requestAnimationFrame(loop);
 canvas.addEventListener("mousemove", function(event) {
 	const position = new Vector2(event.clientX, event.clientY);
 
-	circle2.setPosition(position);
+	polygon.setPosition(position);
 });

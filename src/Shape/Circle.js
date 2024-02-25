@@ -22,10 +22,7 @@ export class Circle extends Shape {
 	 * @param {Vector2} direction
 	 */
 	getSupportPoint(direction) {
-		return this
-			.getPosition()
-			.clone()
-			.add(direction.normalize().multiplyScalar(this.#radius));
+		return direction.normalize().multiplyScalar(this.#radius);
 	}
 
 	/**
