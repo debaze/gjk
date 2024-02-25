@@ -31,11 +31,8 @@ export class Circle extends Shape {
 	render(ctx) {
 		const position = this.getPosition();
 
-		ctx.save();
-			ctx.strokeStyle = this.getColor();
-			ctx.beginPath();
-			ctx.arc(position[0], position[1], this.#radius, 0, PI * 2);
-			ctx.stroke();
-		ctx.restore();
+		ctx.strokeStyle = this.getColor();
+		ctx.beginPath();
+		ctx.arc(position[0], position[1], this.#radius, 0, PI * 2);
 	}
 }

@@ -50,16 +50,14 @@ export class Polygon extends Shape {
 	render(ctx) {
 		const position = this.getPosition();
 
-		ctx.save();
-			ctx.strokeStyle = this.getColor();
-			ctx.beginPath();
-			ctx.moveTo(position[0] + this.#vertices[0][0], position[1] + this.#vertices[0][1]);
+		ctx.strokeStyle = this.getColor();
+		ctx.beginPath();
+		ctx.moveTo(position[0] + this.#vertices[0][0], position[1] + this.#vertices[0][1]);
 
-			for (let i = 1; i < this.#vertices.length; i++) {
-				ctx.lineTo(position[0] + this.#vertices[i][0], position[1] + this.#vertices[i][1]);
-			}
+		for (let i = 1; i < this.#vertices.length; i++) {
+			ctx.lineTo(position[0] + this.#vertices[i][0], position[1] + this.#vertices[i][1]);
+		}
 
-			ctx.stroke();
-		ctx.restore();
+		ctx.lineTo(position[0] + this.#vertices[0][0], position[1] + this.#vertices[0][1]);
 	}
 }

@@ -1,6 +1,5 @@
-import {PI, Vector2} from "../src/math/index.js";
-import {Circle} from "../src/Shape/index.js";
-import {Polygon} from "../src/Shape/Polygon.js";
+import {PI, Vector2, Vector3} from "../src/math/index.js";
+import {Circle, Polygon, Shape} from "../src/Shape/index.js";
 
 const canvas = document.querySelector("canvas");
 const ctx = canvas.getContext("2d");
@@ -12,17 +11,137 @@ ctx.strokeStyle = "#fff";
 ctx.lineWidth = .5;
 
 const center = new Vector2(canvas.clientWidth, canvas.clientHeight).divideScalar(2);
+const O = new Vector3(center[0], center[1], 0);
 const directionLength = 75;
 const direction = new Vector2(0, 0);
 
-const circle = new Circle(center.clone().subtract(new Vector2(50, 0)), 100, "#de1818");
-const polygon = new Polygon(center, [
-	new Vector2(0, 0),
-	new Vector2(200, 120),
-	new Vector2(270, 300),
-	new Vector2(100, 500),
-	new Vector2(0, 0),
+const shape1 = new Circle(center.clone().subtract(new Vector2(50, 0)), 100, "#de1818");
+const shape2 = new Polygon(center, [
+	new Vector2(-60, 40),
+	new Vector2(0, -60),
+	new Vector2(60, 40),
 ], "#ff9800");
+
+/**
+ * @param {Shape} shape1
+ * @param {Shape} shape2
+ */
+function gjk(shape1, shape2) {
+	const direction = new Vector3();
+	
+	direction.set(
+		shape2
+			.getPosition()
+			.clone()
+			.subtract(shape1.getPosition())
+			.normalize(),
+	);
+
+	const simplex = [
+		support(shape1, shape2, direction),
+	];
+
+	direction.set(O.clone().subtract(simplex[0]));
+
+	while (true) {
+		const a = support(shape1, shape2, direction);
+
+		if (a.dot(direction) < 0) {
+			return false;
+		}
+
+		simplex.push(a);
+
+		if (handleSimplex(simplex, direction)) {
+			return true;
+		}
+	}
+}
+
+/**
+ * @param {Vector3[]} simplex
+ * @param {Vector3} direction
+ */
+function handleSimplex(simplex, direction) {
+	if (simplex.length === 2) {
+		return lineCase(simplex, direction);
+	}
+
+	return triangleCase(simplex, direction);
+}
+
+/**
+ * @param {Vector3[]} simplex
+ * @param {Vector3} direction
+ */
+function lineCase(simplex, direction) {
+	const [b, a] = simplex;
+	const ab = b.clone().subtract(a);
+	const ao = O.clone().subtract(a);
+
+	const ab_ao = ab.cross(ao);
+	const ab_ao_ab = ab_ao.cross(ab);
+
+	direction.set(ab_ao_ab);
+
+	return false;
+}
+
+/**
+ * @param {Vector3[]} simplex
+ * @param {Vector3} direction
+ */
+function triangleCase(simplex, direction) {
+	const [c, b, a] = simplex;
+	const ab = b.clone().subtract(a);
+	const ac = c.clone().subtract(a);
+	const ao = O.clone().subtract(a);
+
+	const ac_ab = ac.cross(ab);
+	const ac_ab_ab = ac_ab.cross(ab);
+
+	const ab_ac = ab.cross(ac);
+	const ab_ac_ac = ab_ac.cross(ac);
+
+	// Region AB
+	if (ac_ab_ab.dot(ao) > 0) {
+		simplex.splice(0, 1);
+
+		direction.set(ac_ab_ab);
+
+		return false;
+	}
+
+	// Region AC
+	if (ab_ac_ac.dot(ao) > 0) {
+		simplex.splice(1, 1);
+
+		direction.set(ab_ac_ac);
+
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * @param {Shape} shape1
+ * @param {Shape} shape2
+ * @param {Vector3} direction
+ */
+function support(shape1, shape2, direction) {
+	const supportPoint = new Vector3();
+	const direction2d = new Vector2(direction[0], direction[1]);
+
+	supportPoint.set(
+		shape1
+			.getSupportPoint(direction2d)
+			.clone()
+			.subtract(shape2.getSupportPoint(direction2d)),
+	);
+
+	return supportPoint;
+}
 
 /**
  * @param {Vector2} position
@@ -46,6 +165,17 @@ function renderSupportPoint(position, supportPoint) {
 	ctx.fill();
 }
 
+/**
+ * @param {Shape} shape
+ */
+function highlightShape(shape) {
+	ctx.save();
+		shape.render(ctx);
+
+		ctx.fill();
+	ctx.restore();
+}
+
 function loop() {
 	requestAnimationFrame(loop);
 
@@ -66,10 +196,24 @@ function update(frameIndex) {
 function render() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-	circle.render(ctx);
-	polygon.render(ctx);
-	renderDirection(polygon.getPosition());
-	renderSupportPoint(polygon.getPosition(), polygon.getSupportPoint(direction));
+	ctx.save();
+		shape1.render(ctx);
+
+		ctx.stroke();
+	ctx.restore();
+
+	ctx.save();
+		shape2.render(ctx);
+
+		ctx.stroke();
+	ctx.restore();
+
+	// renderDirection(shape2.getPosition());
+	// renderSupportPoint(shape2.getPosition(), shape2.getSupportPoint(direction));
+
+	if (gjk(shape1, shape2)) {
+		highlightShape(shape1);
+	}
 }
 
 requestAnimationFrame(loop);
@@ -77,5 +221,5 @@ requestAnimationFrame(loop);
 canvas.addEventListener("mousemove", function(event) {
 	const position = new Vector2(event.clientX, event.clientY);
 
-	polygon.setPosition(position);
+	shape2.setPosition(position);
 });
