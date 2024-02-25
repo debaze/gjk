@@ -65,3 +65,9 @@ function render() {
 }
 
 requestAnimationFrame(loop);
+
+canvas.addEventListener("mousemove", function(event) {
+	const position = new Vector2(event.clientX, event.clientY);
+
+	circle2.setPosition(position);
+});

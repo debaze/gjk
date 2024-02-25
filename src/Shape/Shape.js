@@ -27,6 +27,13 @@ export class Shape {
 		return this.#position;
 	}
 
+	/**
+	 * @param {Vector2} position
+	 */
+	setPosition(position) {
+		this.#position = position;
+	}
+
 	getColor() {
 		return this.#color;
 	}
