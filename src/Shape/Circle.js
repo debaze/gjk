@@ -10,11 +10,22 @@ export class Circle extends Shape {
 	/**
 	 * @param {Vector2} position
 	 * @param {Number} radius
+	 * @param {String} color
 	 */
-	constructor(position, radius) {
-		super(position);
+	constructor(position, radius, color) {
+		super(position, color);
 
 		this.#radius = radius;
+	}
+
+	/**
+	 * @param {Vector2} direction
+	 */
+	getSupportPoint(direction) {
+		return this
+			.getPosition()
+			.clone()
+			.add(direction.normalize().multiplyScalar(this.#radius));
 	}
 
 	/**
@@ -23,8 +34,11 @@ export class Circle extends Shape {
 	render(ctx) {
 		const position = this.getPosition();
 
-		ctx.beginPath();
-		ctx.arc(position[0], position[1], this.#radius, 0, PI * 2);
-		ctx.stroke();
+		ctx.save();
+			ctx.strokeStyle = this.getColor();
+			ctx.beginPath();
+			ctx.arc(position[0], position[1], this.#radius, 0, PI * 2);
+			ctx.stroke();
+		ctx.restore();
 	}
 }
