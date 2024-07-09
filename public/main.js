@@ -15,7 +15,7 @@ const O = new Vector3(center[0], center[1], 0);
 const directionLength = 75;
 const direction = new Vector2(0, 0);
 
-const shape1 = new Circle(center.clone().subtract(new Vector2(50, 0)), 100, "#de1818");
+const shape1 = new Circle(new Vector2(center).subtract(new Vector2(50, 0)), 100, "#de1818");
 const shape2 = new Polygon(center, [
 	new Vector2(-60, 40),
 	new Vector2(0, -60),
@@ -28,11 +28,9 @@ const shape2 = new Polygon(center, [
  */
 function gjk(shape1, shape2) {
 	const direction = new Vector3();
-	
+
 	direction.set(
-		shape2
-			.getPosition()
-			.clone()
+		new Vector2(shape2.getPosition())
 			.subtract(shape1.getPosition())
 			.normalize(),
 	);
@@ -41,7 +39,7 @@ function gjk(shape1, shape2) {
 		support(shape1, shape2, direction),
 	];
 
-	direction.set(O.clone().subtract(simplex[0]));
+	direction.set(new Vector3(O).subtract(simplex[0]));
 
 	while (true) {
 		const a = support(shape1, shape2, direction);
@@ -76,8 +74,8 @@ function handleSimplex(simplex, direction) {
  */
 function lineCase(simplex, direction) {
 	const [b, a] = simplex;
-	const ab = b.clone().subtract(a);
-	const ao = O.clone().subtract(a);
+	const ab = new Vector3(b).subtract(a);
+	const ao = new Vector3(O).subtract(a);
 
 	const ab_ao = ab.cross(ao);
 	const ab_ao_ab = ab_ao.cross(ab);
@@ -93,9 +91,9 @@ function lineCase(simplex, direction) {
  */
 function triangleCase(simplex, direction) {
 	const [c, b, a] = simplex;
-	const ab = b.clone().subtract(a);
-	const ac = c.clone().subtract(a);
-	const ao = O.clone().subtract(a);
+	const ab = new Vector3(b).subtract(a);
+	const ac = new Vector3(c).subtract(a);
+	const ao = new Vector3(O).subtract(a);
 
 	const ac_ab = ac.cross(ab);
 	const ac_ab_ab = ac_ab.cross(ab);
@@ -134,9 +132,7 @@ function support(shape1, shape2, direction) {
 	const direction2d = new Vector2(direction[0], direction[1]);
 
 	supportPoint.set(
-		shape1
-			.getSupportPoint(direction2d)
-			.clone()
+		new Vector2(shape1.getSupportPoint(direction2d))
 			.subtract(shape2.getSupportPoint(direction2d)),
 	);
 
