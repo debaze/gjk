@@ -1,9 +1,16 @@
-import {PI, Vector2, Vector3} from "../src/math/index.js";
+import {Vector2, Vector3} from "../src/math/index.js";
 import {Circle, Polygon, Shape} from "../src/Shape/index.js";
 
+/**
+ * @type {HTMLCanvasElement}
+ */
+// @ts-ignore
 const canvas = document.querySelector("canvas");
+/**
+ * @type {CanvasRenderingContext2D}
+ */
+// @ts-ignore
 const ctx = canvas.getContext("2d");
-let frameIndex = 0;
 
 canvas.width = innerWidth;
 canvas.height = innerHeight;
@@ -11,12 +18,10 @@ ctx.strokeStyle = "#fff";
 ctx.lineWidth = .5;
 
 const center = new Vector2(canvas.clientWidth, canvas.clientHeight).divideScalar(2);
-const O = new Vector3(center[0], center[1], 0);
-const directionLength = 75;
-const direction = new Vector2(0, 0);
+const O = new Vector3(0, 0, 0);
 
-const shape1 = new Circle(new Vector2(center).subtract(new Vector2(50, 0)), 100, "#de1818");
-const shape2 = new Polygon(center, [
+const shape1 = new Circle(O, 100, "#de1818");
+const shape2 = new Polygon(O, [
 	new Vector2(-60, 40),
 	new Vector2(0, -60),
 	new Vector2(60, 40),
@@ -27,33 +32,39 @@ const shape2 = new Polygon(center, [
  * @param {Shape} shape2
  */
 function gjk(shape1, shape2) {
-	const direction = new Vector3();
-
-	direction.set(
-		new Vector2(shape2.getPosition())
-			.subtract(shape1.getPosition())
-			.normalize(),
-	);
+	const d = getRandomDirection();
+	const s = support(shape1, shape2, d);
 
 	const simplex = [
-		support(shape1, shape2, direction),
+		s,
 	];
 
-	direction.set(new Vector3(O).subtract(simplex[0]));
+	d.set(new Vector3(O).subtract(s));
 
 	while (true) {
-		const a = support(shape1, shape2, direction);
+		const a = support(shape1, shape2, d);
 
-		if (a.dot(direction) < 0) {
+		if (a.dot(d) < 0) {
 			return false;
 		}
 
 		simplex.push(a);
 
-		if (handleSimplex(simplex, direction)) {
+		if (handleSimplex(simplex, d)) {
 			return true;
 		}
 	}
+}
+
+function getRandomDirection() {
+	const randomAngle = Math.random() * 360;
+	const direction = new Vector3(
+		Math.cos(randomAngle) - Math.sin(randomAngle),
+		Math.sin(randomAngle) + Math.cos(randomAngle),
+		0,
+	);
+
+	return direction;
 }
 
 /**
@@ -133,32 +144,10 @@ function support(shape1, shape2, direction) {
 
 	supportPoint.set(
 		new Vector2(shape1.getSupportPoint(direction2d))
-			.subtract(shape2.getSupportPoint(direction2d)),
+			.subtract(shape2.getSupportPoint(new Vector2(O[0], O[1]).subtract(direction2d))),
 	);
 
 	return supportPoint;
-}
-
-/**
- * @param {Vector2} position
- */
-function renderDirection(position) {
-	ctx.beginPath();
-	ctx.moveTo(position[0], position[1]);
-	ctx.lineTo(position[0] + direction[0], position[1] + direction[1]);
-	ctx.stroke();
-}
-
-/**
- * @param {Vector2} position
- * @param {Vector2} supportPoint
- */
-function renderSupportPoint(position, supportPoint) {
-	ctx.fillStyle = "#de1818";
-
-	ctx.beginPath();
-	ctx.arc(position[0] + supportPoint[0], position[1] + supportPoint[1], 5, 0, PI * 2);
-	ctx.fill();
 }
 
 /**
@@ -166,7 +155,7 @@ function renderSupportPoint(position, supportPoint) {
  */
 function highlightShape(shape) {
 	ctx.save();
-		shape.render(ctx);
+		shape.render(ctx, center);
 
 		ctx.fill();
 	ctx.restore();
@@ -175,37 +164,23 @@ function highlightShape(shape) {
 function loop() {
 	requestAnimationFrame(loop);
 
-	update(frameIndex);
 	render();
-
-	frameIndex++;
-}
-
-/**
- * @param {Number} frameIndex
- */
-function update(frameIndex) {
-	direction[0] = Math.cos(frameIndex * PI / 180) - Math.sin(frameIndex * PI / 180) * directionLength;
-	direction[1] = Math.sin(frameIndex * PI / 180) + Math.cos(frameIndex * PI / 180) * directionLength;
 }
 
 function render() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 	ctx.save();
-		shape1.render(ctx);
+		shape1.render(ctx, center);
 
 		ctx.stroke();
 	ctx.restore();
 
 	ctx.save();
-		shape2.render(ctx);
+		shape2.render(ctx, center);
 
 		ctx.stroke();
 	ctx.restore();
-
-	// renderDirection(shape2.getPosition());
-	// renderSupportPoint(shape2.getPosition(), shape2.getSupportPoint(direction));
 
 	if (gjk(shape1, shape2)) {
 		highlightShape(shape1);
@@ -215,7 +190,7 @@ function render() {
 requestAnimationFrame(loop);
 
 canvas.addEventListener("mousemove", function(event) {
-	const position = new Vector2(event.clientX, event.clientY);
+	const position = new Vector2(event.clientX, event.clientY).subtract(center);
 
 	shape2.setPosition(position);
 });

@@ -22,14 +22,18 @@ export class Circle extends Shape {
 	 * @param {Vector2} direction
 	 */
 	getSupportPoint(direction) {
-		return direction.normalize().multiplyScalar(this.#radius);
+		return new Vector2(direction)
+			.normalize()
+			.multiplyScalar(this.#radius)
+			.add(this.getPosition());
 	}
 
 	/**
 	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {Vector2} center
 	 */
-	render(ctx) {
-		const position = this.getPosition();
+	render(ctx, center) {
+		const position = new Vector2(center).add(this.getPosition());
 
 		ctx.strokeStyle = this.getColor();
 		ctx.beginPath();

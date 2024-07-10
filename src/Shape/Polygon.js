@@ -34,7 +34,9 @@ export class Polygon extends Shape {
 		const dotProducts = [];
 
 		for (let i = 0; i < this.#vertices.length; i++) {
-			const dotProduct = this.#vertices[i].dot(direction);
+			const dotProduct = new Vector2(this.getPosition())
+				.add(this.#vertices[i])
+				.dot(direction);
 
 			dotProducts.push(dotProduct);
 		}
@@ -46,9 +48,10 @@ export class Polygon extends Shape {
 
 	/**
 	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {Vector2} center
 	 */
-	render(ctx) {
-		const position = this.getPosition();
+	render(ctx, center) {
+		const position = new Vector2(center).add(this.getPosition());
 
 		ctx.strokeStyle = this.getColor();
 		ctx.beginPath();

@@ -50,8 +50,9 @@ export class Shape {
 	/**
 	 * @abstract
 	 * @param {CanvasRenderingContext2D} ctx
+	 * @param {Vector2} center
 	 */
-	render(ctx) {
+	render(ctx, center) {
 		throw new Error("Not implemented");
 	}
 }
