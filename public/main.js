@@ -17,14 +17,14 @@ canvas.height = innerHeight;
 ctx.strokeStyle = "#fff";
 ctx.lineWidth = .5;
 
-const center = new Vector2(canvas.clientWidth, canvas.clientHeight).divideScalar(2);
+const center = new Vector3(canvas.clientWidth, canvas.clientHeight, 0).divideScalar(2);
 const O = new Vector3(0, 0, 0);
 
 const shape1 = new Circle(O, 100, "#de1818");
 const shape2 = new Polygon(O, [
-	new Vector2(-60, 40),
-	new Vector2(0, -60),
-	new Vector2(60, 40),
+	new Vector3(-60, 40),
+	new Vector3(0, -60),
+	new Vector3(60, 40),
 ], "#ff9800");
 
 /**
@@ -139,15 +139,11 @@ function triangleCase(simplex, direction) {
  * @param {Vector3} direction
  */
 function support(shape1, shape2, direction) {
-	const supportPoint = new Vector3();
-	const direction2d = new Vector2(direction[0], direction[1]);
+	const s0 = shape1.getFarthestSupportPoint(direction);
+	const s1 = shape2.getFarthestSupportPoint(new Vector3(O).subtract(direction));
+	const s = new Vector3(s0).subtract(s1);
 
-	supportPoint.set(
-		new Vector2(shape1.getSupportPoint(direction2d))
-			.subtract(shape2.getSupportPoint(new Vector2(O[0], O[1]).subtract(direction2d))),
-	);
-
-	return supportPoint;
+	return s;
 }
 
 /**
@@ -190,7 +186,7 @@ function render() {
 requestAnimationFrame(loop);
 
 canvas.addEventListener("mousemove", function(event) {
-	const position = new Vector2(event.clientX, event.clientY).subtract(center);
+	const position = new Vector3(event.clientX, event.clientY, 0).subtract(center);
 
 	shape2.setPosition(position);
 });

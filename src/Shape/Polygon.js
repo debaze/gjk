@@ -1,15 +1,15 @@
-import {Vector2} from "../math/index.js";
+import {Vector3} from "../math/index.js";
 import {Shape} from "./Shape.js";
 
 export class Polygon extends Shape {
 	/**
-	 * @type {Vector2[]}
+	 * @type {Vector3[]}
 	 */
 	#vertices;
 
 	/**
-	 * @param {Vector2} position
-	 * @param {Vector2[]} vertices
+	 * @param {Vector3} position
+	 * @param {Vector3[]} vertices
 	 * @param {String} color
 	 */
 	constructor(position, vertices, color) {
@@ -27,14 +27,13 @@ export class Polygon extends Shape {
 	}
 
 	/**
-	 * @param {Vector2} direction
-	 * @returns {Vector2}
+	 * @param {Vector3} direction
 	 */
-	getSupportPoint(direction) {
+	getFarthestSupportPoint(direction) {
 		const dotProducts = [];
 
 		for (let i = 0; i < this.#vertices.length; i++) {
-			const dotProduct = new Vector2(this.getPosition())
+			const dotProduct = new Vector3(this.getPosition())
 				.add(this.#vertices[i])
 				.dot(direction);
 
@@ -48,10 +47,10 @@ export class Polygon extends Shape {
 
 	/**
 	 * @param {CanvasRenderingContext2D} ctx
-	 * @param {Vector2} center
+	 * @param {Vector3} center
 	 */
 	render(ctx, center) {
-		const position = new Vector2(center).add(this.getPosition());
+		const position = new Vector3(center).add(this.getPosition());
 
 		ctx.strokeStyle = this.getColor();
 		ctx.beginPath();

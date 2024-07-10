@@ -1,11 +1,11 @@
-import {Vector2} from "../math/index.js";
+import {Vector3} from "../math/index.js";
 
 /**
  * @abstract
  */
 export class Shape {
 	/**
-	 * @type {Vector2}
+	 * @type {Vector3}
 	 */
 	#position;
 
@@ -15,7 +15,7 @@ export class Shape {
 	#color;
 
 	/**
-	 * @param {Vector2} position
+	 * @param {Vector3} position
 	 * @param {String} color
 	 */
 	constructor(position, color) {
@@ -28,7 +28,7 @@ export class Shape {
 	}
 
 	/**
-	 * @param {Vector2} position
+	 * @param {Vector3} position
 	 */
 	setPosition(position) {
 		this.#position = position;
@@ -40,17 +40,17 @@ export class Shape {
 
 	/**
 	 * @abstract
-	 * @param {Vector2} direction
-	 * @returns {Vector2}
+	 * @param {Vector3} direction
+	 * @returns {Vector3}
 	 */
-	getSupportPoint(direction) {
+	getFarthestSupportPoint(direction) {
 		throw new Error("Not implemented");
 	}
 
 	/**
 	 * @abstract
 	 * @param {CanvasRenderingContext2D} ctx
-	 * @param {Vector2} center
+	 * @param {Vector3} center
 	 */
 	render(ctx, center) {
 		throw new Error("Not implemented");

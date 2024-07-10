@@ -1,4 +1,4 @@
-import {PI, Vector2} from "../math/index.js";
+import {PI, Vector3} from "../math/index.js";
 import {Shape} from "./Shape.js";
 
 export class Circle extends Shape {
@@ -8,7 +8,7 @@ export class Circle extends Shape {
 	#radius;
 
 	/**
-	 * @param {Vector2} position
+	 * @param {Vector3} position
 	 * @param {Number} radius
 	 * @param {String} color
 	 */
@@ -19,10 +19,10 @@ export class Circle extends Shape {
 	}
 
 	/**
-	 * @param {Vector2} direction
+	 * @param {Vector3} direction
 	 */
-	getSupportPoint(direction) {
-		return new Vector2(direction)
+	getFarthestSupportPoint(direction) {
+		return new Vector3(direction)
 			.normalize()
 			.multiplyScalar(this.#radius)
 			.add(this.getPosition());
@@ -30,10 +30,10 @@ export class Circle extends Shape {
 
 	/**
 	 * @param {CanvasRenderingContext2D} ctx
-	 * @param {Vector2} center
+	 * @param {Vector3} center
 	 */
 	render(ctx, center) {
-		const position = new Vector2(center).add(this.getPosition());
+		const position = new Vector3(center).add(this.getPosition());
 
 		ctx.strokeStyle = this.getColor();
 		ctx.beginPath();
