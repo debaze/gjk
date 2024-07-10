@@ -1,4 +1,4 @@
-import {Vector2, Vector3} from "../src/math/index.js";
+import {Vector3} from "../src/math/index.js";
 import {Circle, Polygon, Shape} from "../src/Shape/index.js";
 
 /**
@@ -14,8 +14,6 @@ const ctx = canvas.getContext("2d");
 
 canvas.width = innerWidth;
 canvas.height = innerHeight;
-ctx.strokeStyle = "#fff";
-ctx.lineWidth = .5;
 
 const center = new Vector3(canvas.clientWidth, canvas.clientHeight, 0).divideScalar(2);
 const O = new Vector3(0, 0, 0);
@@ -146,24 +144,17 @@ function support(shape1, shape2, direction) {
 	return s;
 }
 
-/**
- * @param {Shape} shape
- */
-function highlightShape(shape) {
+function renderCollisionInfo() {
 	ctx.save();
-		shape.render(ctx, center);
+		ctx.fillStyle = "#de1818";
 
-		ctx.fill();
+		ctx.fillRect(8, 8, 24, 24);
 	ctx.restore();
 }
 
 function loop() {
 	requestAnimationFrame(loop);
 
-	render();
-}
-
-function render() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 	ctx.save();
@@ -179,7 +170,7 @@ function render() {
 	ctx.restore();
 
 	if (gjk(shape1, shape2)) {
-		highlightShape(shape1);
+		renderCollisionInfo();
 	}
 }
 
