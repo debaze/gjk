@@ -42,7 +42,7 @@ export class Polygon extends Shape {
 
 		const maxDotProductIndex = dotProducts.indexOf(Math.max(...dotProducts));
 
-		return this.#vertices[maxDotProductIndex];
+		return new Vector3(this.getPosition()).add(this.#vertices[maxDotProductIndex]);
 	}
 
 	/**
