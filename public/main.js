@@ -1,8 +1,6 @@
 import {Vector3} from "../src/math/index.js";
-import {Polygon, Shape} from "../src/Shape/index.js";
-import {lineCase} from "./lineCase.js";
-import {support} from "./support.js";
-import {triangleCase} from "./triangleCase.js";
+import {Polygon} from "../src/Shape/index.js";
+import {gjk} from "./gjk.js";
 
 /**
  * @type {HTMLCanvasElement}
@@ -20,7 +18,6 @@ canvas.height = innerHeight;
 
 const center = new Vector3(canvas.clientWidth, canvas.clientHeight, 0).divideScalar(2);
 export const O = new Vector3(0, 0, 0);
-const MAX_ITERATIONS = 64;
 
 const shape1 = new Polygon(new Vector3(-50, 30, O[2]), [
 	new Vector3(-30, 0, 0),
@@ -37,46 +34,15 @@ const shape2 = new Polygon(new Vector3(-25, 73.5, 0), [
 ], "gold");
 
 /**
- * @param {Shape} shape1
- * @param {Shape} shape2
+ * @param {Object} object
  */
-function gjk(shape1, shape2) {
-	const D = new Vector3(0, 1, 0);
-	const s = support(shape1, shape2, D);
+function renderDebug(object) {
+	ctx.save();
+		ctx.font = "20px Arial";
+		ctx.fillStyle = "#ffffff";
 
-	if (s.dot(D) < 0) {
-		return false;
-	}
-
-	const simplex = [
-		s,
-	];
-
-	D.set(new Vector3(O).subtract(s));
-
-	for (let i = 0; i < MAX_ITERATIONS; i++) {
-		const a = support(shape1, shape2, D);
-
-		if (a.dot(D) < 0) {
-			return false;
-		}
-
-		simplex.push(a);
-
-		if (simplex.length === 2) {
-			lineCase(simplex, D);
-
-			continue;
-		}
-
-		if (simplex.length === 3) {
-			if (triangleCase(simplex, D)) {
-				return true;
-			}
-		}
-	}
-
-	return false;
+		ctx.fillText(object.toString(), 38, 28);
+	ctx.restore();
 }
 
 function renderCollisionInfo() {
