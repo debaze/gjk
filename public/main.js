@@ -1,8 +1,8 @@
 import {Vector3} from "../src/math/index.js";
-import {Circle, Shape} from "../src/Shape/index.js";
+import {Circle, Polygon, Shape} from "../src/Shape/index.js";
 import {lineCase} from "./lineCase.js";
 import {support} from "./support.js";
-import {triangleCase} from "./triangleCase.js";
+import {triangleCase2} from "./triangleCase.js";
 
 /**
  * @type {HTMLCanvasElement}
@@ -23,11 +23,11 @@ export const O = new Vector3(0, 0, 0);
 const MAX_ITERATIONS = 64;
 
 const shape1 = new Circle(new Vector3(-150, O[1], O[2]), 100, "royalblue");
-const shape2 = /* new Polygon(new Vector3(20, O[1], O[2]), [
+const shape2 = new Polygon(new Vector3(20, O[1], O[2]), [
 	new Vector3(-60, 40),
 	new Vector3(0, -60),
 	new Vector3(60, 40),
-], "peachpuff"); */new Circle(new Vector3(-40, O[1], O[2]), 70, "peachpuff");
+], "peachpuff");
 
 /**
  * @param {Shape} shape1
@@ -63,7 +63,7 @@ function gjk(shape1, shape2) {
 		}
 
 		if (simplex.length === 3) {
-			if (triangleCase(simplex, D)) {
+			if (triangleCase2(simplex, D)) {
 				return true;
 			}
 		}
