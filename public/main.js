@@ -22,12 +22,19 @@ const center = new Vector3(canvas.clientWidth, canvas.clientHeight, 0).divideSca
 export const O = new Vector3(0, 0, 0);
 const MAX_ITERATIONS = 64;
 
-const shape1 = new Circle(new Vector3(-150, O[1], O[2]), 100, "royalblue");
+const shape1 = new Polygon(new Vector3(-50, 30, O[2]), [
+	new Vector3(-30, 0, 0),
+	new Vector3(0, 30, 0),
+	new Vector3(30, 40, 0),
+	new Vector3(60, 25, 0),
+	new Vector3(80, 10, 0),
+], "royalblue");
 const shape2 = new Polygon(new Vector3(20, O[1], O[2]), [
-	new Vector3(-60, 40),
-	new Vector3(0, -60),
-	new Vector3(60, 40),
-], "peachpuff");
+	new Vector3(-60, 0, 0),
+	new Vector3(0, 100, 0),
+	new Vector3(60, 0, 0),
+	new Vector3(70, -30, 0),
+], "gold");
 
 /**
  * @param {Shape} shape1

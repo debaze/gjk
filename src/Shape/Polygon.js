@@ -34,9 +34,11 @@ export class Polygon extends Shape {
 		let pDot = -Infinity;
 
 		for (let i = 0; i < this.#vertices.length; i++) {
-			const dotProduct = new Vector3(this.getPosition())
-				.add(this.#vertices[i])
-				.dot(direction);
+			const dotProduct = new Vector3(
+				this.getPosition()[0] + this.#vertices[i][0],
+				this.getPosition()[1] - this.#vertices[i][1],
+				this.getPosition()[2] + this.#vertices[i][2],
+			).dot(direction);
 
 			if (dotProduct > pDot) {
 				pId = i;
@@ -44,7 +46,11 @@ export class Polygon extends Shape {
 			}
 		}
 
-		return new Vector3(this.getPosition()).add(this.#vertices[pId]);
+		return new Vector3(
+			this.getPosition()[0] + this.#vertices[pId][0],
+			this.getPosition()[1] - this.#vertices[pId][1],
+			this.getPosition()[2] + this.#vertices[pId][2],
+		);
 	}
 
 	/**
@@ -56,12 +62,12 @@ export class Polygon extends Shape {
 
 		ctx.strokeStyle = this.getColor();
 		ctx.beginPath();
-		ctx.moveTo(position[0] + this.#vertices[0][0], position[1] + this.#vertices[0][1]);
+		ctx.moveTo(position[0] + this.#vertices[0][0], position[1] - this.#vertices[0][1]);
 
 		for (let i = 1; i < this.#vertices.length; i++) {
-			ctx.lineTo(position[0] + this.#vertices[i][0], position[1] + this.#vertices[i][1]);
+			ctx.lineTo(position[0] + this.#vertices[i][0], position[1] - this.#vertices[i][1]);
 		}
 
-		ctx.lineTo(position[0] + this.#vertices[0][0], position[1] + this.#vertices[0][1]);
+		ctx.lineTo(position[0] + this.#vertices[0][0], position[1] - this.#vertices[0][1]);
 	}
 }
