@@ -19,54 +19,46 @@ const center = new Vector3(canvas.clientWidth, canvas.clientHeight, 0).divideSca
 const O = new Vector3(0, 0, 0);
 const MAX_ITERATIONS = 64;
 
-const shape1 = new Circle(new Vector3(-150, O[1], O[2]), 100, "#de1818");
+const shape1 = new Circle(new Vector3(-150, O[1], O[2]), 100, "royalblue");
 const shape2 = new Polygon(new Vector3(20, O[1], O[2]), [
 	new Vector3(-60, 40),
 	new Vector3(0, -60),
 	new Vector3(60, 40),
-], "#ff9800");
+], "peachpuff");
 
 /**
  * @param {Shape} shape1
  * @param {Shape} shape2
  */
 function gjk(shape1, shape2) {
-	const d = getRandomDirection();
-	const s = support(shape1, shape2, d);
+	const D = new Vector3(1, 0, 0);
+	const s = support(shape1, shape2, new Vector3(1, 0, 0));
+
+	if (s.dot(D) < 0) {
+		return false;
+	}
 
 	const simplex = [
 		s,
 	];
 
-	d.set(new Vector3(O).subtract(s));
+	D.set(new Vector3(O).subtract(s));
 
 	for (let i = 0; i < MAX_ITERATIONS; i++) {
-		const a = support(shape1, shape2, d);
+		const a = support(shape1, shape2, D);
 
-		if (a.dot(d) < 0) {
+		if (a.dot(D) < 0) {
 			return false;
 		}
 
 		simplex.push(a);
 
-		if (handleSimplex(simplex, d)) {
+		if (handleSimplex(simplex, D)) {
 			return true;
 		}
 	}
 
 	return false;
-}
-
-function getRandomDirection() {
-	/* const randomAngle = Math.random() * 360;
-	const direction = new Vector3(
-		Math.cos(randomAngle) - Math.sin(randomAngle),
-		Math.sin(randomAngle) + Math.cos(randomAngle),
-		0,
-	); */
-	const direction = new Vector3(1, 0, 0);
-
-	return direction;
 }
 
 /**
@@ -150,23 +142,9 @@ function support(shape1, shape2, direction) {
 	return s;
 }
 
-/**
- * @param {Object} object
- */
-function debug(object) {
-	const text = object.toString();
-
-	ctx.save();
-		ctx.font = "20px Arial";
-
-		ctx.clearRect(8, 28, ctx.measureText(text).width, 20);
-		ctx.fillText(text, 8, 28);
-	ctx.restore();
-}
-
 function renderCollisionInfo() {
 	ctx.save();
-		ctx.fillStyle = "#de1818";
+		ctx.fillStyle = "#ffffff";
 
 		ctx.fillRect(8, 8, 24, 24);
 	ctx.restore();

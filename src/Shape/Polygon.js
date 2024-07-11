@@ -30,19 +30,21 @@ export class Polygon extends Shape {
 	 * @param {Vector3} direction
 	 */
 	getFarthestSupportPoint(direction) {
-		const dotProducts = [];
+		let pId = 0;
+		let pDot = -Infinity;
 
 		for (let i = 0; i < this.#vertices.length; i++) {
 			const dotProduct = new Vector3(this.getPosition())
 				.add(this.#vertices[i])
 				.dot(direction);
 
-			dotProducts.push(dotProduct);
+			if (dotProduct > pDot) {
+				pId = i;
+				pDot = dotProduct;
+			}
 		}
 
-		const maxDotProductIndex = dotProducts.indexOf(Math.max(...dotProducts));
-
-		return new Vector3(this.getPosition()).add(this.#vertices[maxDotProductIndex]);
+		return new Vector3(this.getPosition()).add(this.#vertices[pId]);
 	}
 
 	/**
