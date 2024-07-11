@@ -27,22 +27,9 @@ export class Polygon extends Shape {
 	}
 
 	/**
-	 * @param {Number} index
-	 * @throws {Exception} if the index overflows the vertex buffer
-	 */
-	#getClipSpaceVertex(index) {
-		if (index >= this.#vertices.length) {
-			throw new Error("Index overflow in vertex buffer");
-		}
-
-		return new Vector3(this.getPosition())
-			.add(this.#vertices[index]);
-	}
-
-	/**
 	 * @param {Vector3} direction
 	 */
-	getFarthestSupportPoint(direction) {
+	support(direction) {
 		let pId = 0;
 		let pDot = this.#getClipSpaceVertex(0).dot(direction);
 		let n = 2;
@@ -98,5 +85,18 @@ export class Polygon extends Shape {
 		}
 
 		ctx.lineTo(v0[0], v0[1]);
+	}
+
+	/**
+	 * @param {Number} index
+	 * @throws {Exception} if the index overflows the vertex buffer
+	 */
+	#getClipSpaceVertex(index) {
+		if (index >= this.#vertices.length) {
+			throw new Error("Index overflow in vertex buffer");
+		}
+
+		return new Vector3(this.getPosition())
+			.add(this.#vertices[index]);
 	}
 }

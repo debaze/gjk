@@ -43,7 +43,7 @@ export class Shape {
 	 * @param {Vector3} direction
 	 * @returns {Vector3}
 	 */
-	getFarthestSupportPoint(direction) {
+	support(direction) {
 		throw new Error("Not implemented");
 	}
 

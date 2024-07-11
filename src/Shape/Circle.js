@@ -21,7 +21,7 @@ export class Circle extends Shape {
 	/**
 	 * @param {Vector3} direction
 	 */
-	getFarthestSupportPoint(direction) {
+	support(direction) {
 		return new Vector3(direction)
 			.normalize()
 			.multiplyScalar(this.#radius)
