@@ -1,4 +1,4 @@
-import {Vector3} from "../math/index.js";
+import {Vector2, Vector3} from "../math/index.js";
 import {Shape} from "./Shape.js";
 
 export class Polygon extends Shape {
@@ -60,31 +60,30 @@ export class Polygon extends Shape {
 	}
 
 	/**
-	 * @param {CanvasRenderingContext2D} ctx
-	 * @param {Vector3} center
+	 * @param {CanvasRenderingContext2D} context
+	 * @param {Vector2} O
 	 */
-	render(ctx, center) {
-		ctx.strokeStyle = this.getColor();
-		ctx.beginPath();
+	render(context, O) {
+		context.beginPath();
 
 		const v0 = new Vector3(
-			this.getPosition()[0] + this.#vertices[0][0] + center[0],
-			center[1] - (this.getPosition()[1] + this.#vertices[0][1]),
-			this.getPosition()[2] + center[2],
+			this.getPosition()[0] + this.#vertices[0][0] + O[0],
+			O[1] - (this.getPosition()[1] + this.#vertices[0][1]),
+			this.getPosition()[2] + O[2],
 		);
-		ctx.moveTo(v0[0], v0[1]);
+		context.moveTo(v0[0], v0[1]);
 
 		for (let n = 1; n < this.#vertices.length; n++) {
 			const vN = new Vector3(
-				this.getPosition()[0] + this.#vertices[n][0] + center[0],
-				center[1] - (this.getPosition()[1] + this.#vertices[n][1]),
-				this.getPosition()[2] + center[2],
+				this.getPosition()[0] + this.#vertices[n][0] + O[0],
+				O[1] - (this.getPosition()[1] + this.#vertices[n][1]),
+				this.getPosition()[2] + O[2],
 			);
 
-			ctx.lineTo(vN[0], vN[1]);
+			context.lineTo(vN[0], vN[1]);
 		}
 
-		ctx.lineTo(v0[0], v0[1]);
+		context.lineTo(v0[0], v0[1]);
 	}
 
 	/**

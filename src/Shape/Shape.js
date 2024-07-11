@@ -1,4 +1,4 @@
-import {Vector3} from "../math/index.js";
+import {Vector2, Vector3} from "../math/index.js";
 
 /**
  * @abstract
@@ -49,10 +49,10 @@ export class Shape {
 
 	/**
 	 * @abstract
-	 * @param {CanvasRenderingContext2D} ctx
-	 * @param {Vector3} center
+	 * @param {CanvasRenderingContext2D} context
+	 * @param {Vector2} O
 	 */
-	render(ctx, center) {
+	render(context, O) {
 		throw new Error("Not implemented");
 	}
 }
