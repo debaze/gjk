@@ -1,5 +1,5 @@
 import {Vector3} from "../src/math/index.js";
-import {Circle, Polygon, Shape} from "../src/Shape/index.js";
+import {Polygon, Shape} from "../src/Shape/index.js";
 import {lineCase} from "./lineCase.js";
 import {support} from "./support.js";
 import {triangleCase} from "./triangleCase.js";
@@ -17,6 +17,7 @@ const ctx = canvas.getContext("2d");
 
 canvas.width = innerWidth;
 canvas.height = innerHeight;
+let hasStarted = false;
 
 const center = new Vector3(canvas.clientWidth, canvas.clientHeight, 0).divideScalar(2);
 export const O = new Vector3(0, 0, 0);
@@ -29,7 +30,7 @@ const shape1 = new Polygon(new Vector3(-50, 30, O[2]), [
 	new Vector3(60, 25, 0),
 	new Vector3(80, 10, 0),
 ], "royalblue");
-const shape2 = new Polygon(new Vector3(20, O[1], O[2]), [
+const shape2 = new Polygon(new Vector3(-60, -64, O[2]), [
 	new Vector3(-60, 0, 0),
 	new Vector3(0, 100, 0),
 	new Vector3(60, 0, 0),
@@ -41,8 +42,8 @@ const shape2 = new Polygon(new Vector3(20, O[1], O[2]), [
  * @param {Shape} shape2
  */
 function gjk(shape1, shape2) {
-	const D = new Vector3(1, 0, 0);
-	const s = support(shape1, shape2, new Vector3(1, 0, 0));
+	const D = new Vector3(0, -1, 0);
+	const s = support(shape1, shape2, D);
 
 	if (s.dot(D) < 0) {
 		return false;
@@ -104,6 +105,10 @@ function loop() {
 		ctx.stroke();
 	ctx.restore();
 
+	if (!hasStarted) {
+		return;
+	}
+
 	if (gjk(shape1, shape2)) {
 		renderCollisionInfo();
 	}
@@ -112,7 +117,15 @@ function loop() {
 requestAnimationFrame(loop);
 
 canvas.addEventListener("mousemove", function(event) {
-	const position = new Vector3(event.clientX, event.clientY, 0).subtract(center);
+	if (!hasStarted) {
+		hasStarted = true;
+	}
+
+	const position = new Vector3(
+		event.clientX - center[0],
+		(-event.clientY + center[1]),
+		center[2],
+	);
 
 	shape2.setPosition(position);
 });
