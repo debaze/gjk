@@ -2,7 +2,7 @@ import {Vector3} from "../src/math/index.js";
 import {Circle, Polygon, Shape} from "../src/Shape/index.js";
 import {lineCase} from "./lineCase.js";
 import {support} from "./support.js";
-import {triangleCase2} from "./triangleCase.js";
+import {triangleCase} from "./triangleCase.js";
 
 /**
  * @type {HTMLCanvasElement}
@@ -63,7 +63,7 @@ function gjk(shape1, shape2) {
 		}
 
 		if (simplex.length === 3) {
-			if (triangleCase2(simplex, D)) {
+			if (triangleCase(simplex, D)) {
 				return true;
 			}
 		}
