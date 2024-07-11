@@ -47,7 +47,6 @@ export class Polygon extends Shape {
 		let pDot = this.#getClipSpaceVertex(0).dot(direction);
 		let n = 2;
 		let order = 1;
-		let testCount = 2;
 
 		const p1Dot = this.#getClipSpaceVertex(1).dot(direction);
 
@@ -55,14 +54,12 @@ export class Polygon extends Shape {
 			pId = 1;
 			pDot = p1Dot;
 		} else {
-			n = this.#vertices.length - 2;
+			n = this.#vertices.length - 1;
 			order = -1;
 		}
 
-		for (; testCount < this.#vertices.length; n += order, testCount++) {
+		for (let testCount = 2; testCount < this.#vertices.length; n += order, testCount++) {
 			const pNDot = this.#getClipSpaceVertex(n).dot(direction);
-
-			// console.log(n, this.#vertices[n], pNDot)
 
 			if (pNDot <= pDot) {
 				break;
@@ -71,34 +68,6 @@ export class Polygon extends Shape {
 			pId = n;
 			pDot = pNDot;
 		}
-
-		const j = this.#vertices[pId];
-		const i = this.#getClipSpaceVertex(pId);
-
-		// debugger;
-
-		return this.#getClipSpaceVertex(pId);
-	}
-
-	/**
-	 * @param {Vector3} direction
-	 */
-	getFarthestSupportPoint__old(direction) {
-		let pId = 0;
-		let pDot = this.#getClipSpaceVertex(0).dot(direction);
-
-		for (let n = 1; n < this.#vertices.length; n++) {
-			const pNDot = this.#getClipSpaceVertex(n).dot(direction);
-
-			// console.log(n, this.#vertices[n], pNDot);
-
-			if (pNDot > pDot) {
-				pId = n;
-				pDot = pNDot;
-			}
-		}
-
-		// debugger;
 
 		return this.#getClipSpaceVertex(pId);
 	}
