@@ -1,9 +1,19 @@
 import {Vector3} from "../src/math/Vector3.js";
+import {PolygonWinding} from "../src/PolygonWinding.js";
 import {Shape} from "../src/Shape/index.js";
 import {closestEdge} from "./closestEdge.js";
 import {support} from "./support.js";
 
+/**
+ * @typedef {Object} Collision
+ * @property {Vector3} normal
+ * @property {Number} depth
+ */
+
+const MAX_ITERATIONS = 64;
 const EPA_THRESHOLD = 0.0001;
+
+let k = 1;
 
 /**
  * @param {Shape} shape1
@@ -11,21 +21,24 @@ const EPA_THRESHOLD = 0.0001;
  * @param {Vector3[]} simplex
  */
 export function epa(shape1, shape2, simplex) {
-	const polytope = simplex;
+	for (let i = 0; i < MAX_ITERATIONS; i++) {
+		const e = closestEdge(simplex, PolygonWinding.CLOCKWISE);
+		const s = support(shape1, shape2, e.normal);
 
-	while (true) {
-		const edge = closestEdge(polytope);
-		const s = support(shape1, shape2, edge.normal);
-
-		if (Math.abs(edge.normal.dot(s) - edge.distance) < EPA_THRESHOLD) {
-			return {
-				start: edge.start,
-				end: edge.end,
-				normal: edge.normal,
-				distance: edge.distance,
+		if (s.dot(e.normal) - e.distance < EPA_THRESHOLD) {
+			/**
+			 * @type {Collision}
+			 */
+			const collision = {
+				normal: e.normal,
+				depth: e.distance,
 			};
+
+			return collision;
 		}
 
-		polytope.splice(edge.startIndex + 1, 0, s);
+		simplex.splice(e.endIndex, 0, s);
 	}
+
+	return null;
 }

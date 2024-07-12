@@ -31,7 +31,7 @@ export class Shape {
 	 * @param {Vector3} position
 	 */
 	setPosition(position) {
-		this.#position = position;
+		this.#position.set(position);
 	}
 
 	getColor() {

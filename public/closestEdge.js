@@ -1,45 +1,54 @@
+import {PolygonWinding} from "../src/index.js";
 import {Vector3} from "../src/math/index.js";
 
 /**
  * @typedef {Object} ClosestEdge
- * @property {Vector3} start
- * @property {Number} startIndex
- * @property {Vector3} end
  * @property {Vector3} normal
  * @property {Number} distance
+ * @property {Number} endIndex
  */
 
 /**
  * @param {Vector3[]} polytope The simplex returned from the GJK response
+ * @param {PolygonWinding} winding
  */
-export function closestEdge(polytope) {
-	const edge = new Vector3();
-	const normal = new Vector3();
-	let minDistance = Number.NEGATIVE_INFINITY;
+export function closestEdge(polytope, winding) {
+	const l = polytope.length;
 
 	/**
 	 * @type {ClosestEdge}
 	 */
-	let closestEdge = {};
+	const closestEdge = {};
 
-	for (let i = 0; i < polytope.length; i++) {
-		const start = polytope[i];
-		const end = polytope[(i + 1) % polytope.length];
+	closestEdge.distance = Number.POSITIVE_INFINITY;
 
-		edge.set(end);
-		edge.subtract(start);
+	for (let i = 0; i < l; i++) {
+		const j = (i + 1) % l;
+		const a = polytope[i];
+		const b = polytope[j];
+		const e = new Vector3(b).subtract(a);
+		const n = new Vector3();
 
-		normal.set(edge.cross(start).cross(edge));
+		switch (winding) {
+			case PolygonWinding.CLOCKWISE:
+				n.set(new Vector3(e[1], -e[0], e[2]));
 
-		const distance = normal.dot(start);
+				break;
+			case PolygonWinding.COUNTER_CLOCKWISE:
+				n.set(new Vector3(-e[1], e[0], e[2]));
 
-		if (distance < minDistance) {
-			minDistance = distance;
-			closestEdge.start = start;
-			closestEdge.startIndex = i;
-			closestEdge.end = end;
+				break;
+		}
+
+		n.normalize();
+
+		// Could use a or b here
+		const distance = n.dot(a);
+
+		if (distance < closestEdge.distance) {
+			closestEdge.normal = n;
 			closestEdge.distance = distance;
-			closestEdge.normal = normal;
+			closestEdge.endIndex = j;
 		}
 	}
 

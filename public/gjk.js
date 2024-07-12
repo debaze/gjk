@@ -16,11 +16,12 @@ export function gjk(shape1, shape2) {
 	 * Found (0, 1, 0) to result in no more than 3 iterations
 	 * before getting a response
 	 */
-	const D = new Vector3(0, 1, 0);
+	// const D = new Vector3(0, 1, 0);
+	const D = new Vector3(1, 0, 0); // For EPA testing
 	const s = support(shape1, shape2, D);
 
 	if (s.dot(D) < 0) {
-		return false;
+		return null;
 	}
 
 	const simplex = [
@@ -33,7 +34,7 @@ export function gjk(shape1, shape2) {
 		const a = support(shape1, shape2, D);
 
 		if (a.dot(D) < 0) {
-			return false;
+			return null;
 		}
 
 		simplex.push(a);
@@ -46,10 +47,10 @@ export function gjk(shape1, shape2) {
 
 		if (simplex.length === 3) {
 			if (triangleCase(simplex, D)) {
-				return true;
+				return simplex;
 			}
 		}
 	}
 
-	return false;
+	return null;
 }
