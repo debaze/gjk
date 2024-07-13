@@ -28,18 +28,10 @@ export function closestEdge(polytope, winding) {
 		const b = polytope[j];
 		const e = new Vector3(b).subtract(a);
 		const n = new Vector3();
+		const isClockwise = winding === PolygonWinding.CLOCKWISE ?
+			1 : -1;
 
-		switch (winding) {
-			case PolygonWinding.CLOCKWISE:
-				n.set(new Vector3(e[1], -e[0], e[2]));
-
-				break;
-			case PolygonWinding.COUNTER_CLOCKWISE:
-				n.set(new Vector3(-e[1], e[0], e[2]));
-
-				break;
-		}
-
+		n.set(new Vector3(isClockwise * e[1], -isClockwise * e[0], e[2]));
 		n.normalize();
 
 		// Could use a or b here

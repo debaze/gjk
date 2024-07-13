@@ -4,8 +4,6 @@ import {Polygon} from "../src/Shape/index.js";
 import {epa} from "./epa.js";
 import {gjk} from "./gjk.js";
 
-export const O = new Vector3(0, 0, 0);
-
 const renderer = new Renderer();
 const shape1 = new Polygon(new Vector3(-25, 73.5, 0), [
 	new Vector3(-60, 0, 0),

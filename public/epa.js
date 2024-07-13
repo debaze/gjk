@@ -10,10 +10,11 @@ import {support} from "./support.js";
  * @property {Number} depth
  */
 
-const MAX_ITERATIONS = 64;
+/**
+ * Max number tested: 7
+ */
+const MAX_ITERATIONS = 16;
 const EPA_THRESHOLD = 0.0001;
-
-let k = 1;
 
 /**
  * @param {Shape} shape1
