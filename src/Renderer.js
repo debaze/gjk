@@ -1,5 +1,5 @@
 import {Vector2, Vector4} from "./math/index.js";
-import {Shape} from "./Shape/index.js";
+import {Mesh} from "./Mesh/index.js";
 
 export class Renderer {
 	static #COLUMN_GAP = 16;
@@ -48,11 +48,11 @@ export class Renderer {
 	}
 
 	/**
-	 * @param {Shape} shape1
-	 * @param {Shape} shape2
+	 * @param {Mesh} mesh1
+	 * @param {Mesh} mesh2
 	 * @param {Boolean} intersecting
 	 */
-	render(shape1, shape2, intersecting) {
+	render(mesh1, mesh2, intersecting) {
 		const v = this.#viewport;
 
 		this.#context.clearRect(v[0], v[1], v[2], v[3]);
@@ -60,8 +60,8 @@ export class Renderer {
 		this.#renderGrid();
 		this.#renderAxes();
 		this.#renderOrigin();
-		this.#renderShape(shape1, intersecting);
-		this.#renderShape(shape2, intersecting);
+		this.#renderMesh(mesh1, intersecting);
+		this.#renderMesh(mesh2, intersecting);
 	}
 
 	/**
@@ -153,21 +153,24 @@ export class Renderer {
 	}
 
 	/**
-	 * @param {Shape} shape
+	 * @param {Mesh} mesh
 	 * @param {Boolean} intersecting
 	 */
-	#renderShape(shape, intersecting) {
+	#renderMesh(mesh, intersecting) {
+		const geometry = mesh.getGeometry();
+		const material = mesh.getMaterial();
+
 		this.#context.save();
 
 		if (intersecting) {
 			this.#context.fillStyle = Renderer.#INTERSECTION_BACKGROUND_COLOR;
 			this.#context.strokeStyle = Renderer.#INTERSECTION_EDGE_COLOR;
 		} else {
-			this.#context.fillStyle = `${shape.getColor()}45`;
-			this.#context.strokeStyle = shape.getColor();
+			this.#context.fillStyle = `${material.getColor()}45`;
+			this.#context.strokeStyle = material.getColor();
 		}
 
-		shape.render(this.#context, this.#origin);
+		geometry.render(this.#context, this.#origin);
 
 		this.#context.stroke();
 		this.#context.fill();

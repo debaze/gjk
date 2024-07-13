@@ -1,26 +1,21 @@
 import {Vector2, Vector3} from "../math/index.js";
 
 /**
+ * @typedef {Object} GeometryDescriptor
+ * @property {Vector3} position
+ */
+
+/**
  * @abstract
  */
-export class Shape {
-	/**
-	 * @type {Vector3}
-	 */
+export class Geometry {
 	#position;
 
 	/**
-	 * @type {String}
+	 * @param {GeometryDescriptor} descriptor
 	 */
-	#color;
-
-	/**
-	 * @param {Vector3} position
-	 * @param {String} color
-	 */
-	constructor(position, color) {
-		this.#position = position;
-		this.#color = color;
+	constructor(descriptor) {
+		this.#position = descriptor.position;
 	}
 
 	getPosition() {
@@ -34,16 +29,12 @@ export class Shape {
 		this.#position.set(position);
 	}
 
-	getColor() {
-		return this.#color;
-	}
-
 	/**
 	 * @abstract
-	 * @param {Vector3} direction
+	 * @param {Vector3} D
 	 * @returns {Vector3}
 	 */
-	support(direction) {
+	support(D) {
 		throw new Error("Not implemented");
 	}
 

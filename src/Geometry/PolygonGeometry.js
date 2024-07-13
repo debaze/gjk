@@ -1,25 +1,28 @@
 import {Vector2, Vector3} from "../math/index.js";
-import {Shape} from "./Shape.js";
+import {Geometry} from "./Geometry.js";
 
-export class Polygon extends Shape {
+/**
+ * @typedef {Object} PolygonGeometryDescriptor
+ * @property {Vector3[]} vertices
+ */
+
+export class PolygonGeometry extends Geometry {
 	/**
 	 * @type {Vector3[]}
 	 */
 	#vertices;
 
 	/**
-	 * @param {Vector3} position
-	 * @param {Vector3[]} vertices
-	 * @param {String} color
+	 * @param {import("./Geometry.js").GeometryDescriptor & PolygonGeometryDescriptor} descriptor
 	 */
-	constructor(position, vertices, color) {
-		super(position, color);
+	constructor(descriptor) {
+		super(descriptor);
 
-		if (vertices.length < 3) {
+		if (descriptor.vertices.length < 3) {
 			throw new Error("Too few vertices provided");
 		}
 
-		this.#vertices = vertices;
+		this.#vertices = descriptor.vertices;
 	}
 
 	getVertices() {
@@ -27,15 +30,15 @@ export class Polygon extends Shape {
 	}
 
 	/**
-	 * @param {Vector3} direction
+	 * @param {Vector3} D
 	 */
-	support(direction) {
+	support(D) {
 		let pId = 0;
-		let pDot = this.#getClipSpaceVertex(0).dot(direction);
+		let pDot = this.#getClipSpaceVertex(0).dot(D);
 		let n = 2;
 		let order = 1;
 
-		const p1Dot = this.#getClipSpaceVertex(1).dot(direction);
+		const p1Dot = this.#getClipSpaceVertex(1).dot(D);
 
 		if (p1Dot > pDot) {
 			pId = 1;
@@ -46,7 +49,7 @@ export class Polygon extends Shape {
 		}
 
 		for (let testCount = 2; testCount < this.#vertices.length; n += order, testCount++) {
-			const pNDot = this.#getClipSpaceVertex(n).dot(direction);
+			const pNDot = this.#getClipSpaceVertex(n).dot(D);
 
 			if (pNDot <= pDot) {
 				break;

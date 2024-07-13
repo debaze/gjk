@@ -1,28 +1,28 @@
 import {PI, Vector2, Vector3} from "../math/index.js";
-import {Shape} from "./Shape.js";
+import {Geometry} from "./Geometry.js";
 
-export class Circle extends Shape {
-	/**
-	 * @type {Number}
-	 */
+/**
+ * @typedef {Object} CircleGeometryDescriptor
+ * @property {Number} radius
+ */
+
+export class CircleGeometry extends Geometry {
 	#radius;
 
 	/**
-	 * @param {Vector3} position
-	 * @param {Number} radius
-	 * @param {String} color
+	 * @param {import("./Geometry.js").GeometryDescriptor & CircleGeometryDescriptor} descriptor
 	 */
-	constructor(position, radius, color) {
-		super(position, color);
+	constructor(descriptor) {
+		super(descriptor);
 
-		this.#radius = radius;
+		this.#radius = descriptor.radius;
 	}
 
 	/**
-	 * @param {Vector3} direction
+	 * @param {Vector3} D
 	 */
-	support(direction) {
-		return new Vector3(direction)
+	support(D) {
+		return new Vector3(D)
 			.normalize()
 			.multiplyScalar(this.#radius)
 			.add(this.getPosition());

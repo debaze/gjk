@@ -1,23 +1,41 @@
 import {Renderer} from "../src/index.js";
+import {PolygonGeometry} from "../src/Geometry/index.js";
+import {Material} from "../src/Material/index.js";
 import {Vector3} from "../src/math/index.js";
-import {Polygon} from "../src/Shape/index.js";
+import {Mesh} from "../src/Mesh/Mesh.js";
 import {epa} from "./epa.js";
 import {gjk} from "./gjk.js";
 
 const renderer = new Renderer();
-const shape1 = new Polygon(new Vector3(-25, 73.5, 0), [
-	new Vector3(-60, 0, 0),
-	new Vector3(0, 100, 0),
-	new Vector3(60, 0, 0),
-	new Vector3(70, -30, 0),
-], "#2db83d");
-const shape2 = new Polygon(new Vector3(-50, 30, 0), [
-	new Vector3(-30, 0, 0),
-	new Vector3(0, 30, 0),
-	new Vector3(30, 40, 0),
-	new Vector3(60, 25, 0),
-	new Vector3(80, 10, 0),
-], "#779ecb");
+const mesh1 = new Mesh({
+	geometry: new PolygonGeometry({
+		position: new Vector3(-25, 73.5, 0),
+		vertices: [
+			new Vector3(-60, 0, 0),
+			new Vector3(0, 100, 0),
+			new Vector3(60, 0, 0),
+			new Vector3(70, -30, 0),
+		],
+	}),
+	material: new Material({
+		color: "#2db83d",
+	}),
+});
+const mesh2 = new Mesh({
+	geometry: new PolygonGeometry({
+		position: new Vector3(-50, 30, 0),
+		vertices: [
+			new Vector3(-30, 0, 0),
+			new Vector3(0, 30, 0),
+			new Vector3(30, 40, 0),
+			new Vector3(60, 25, 0),
+			new Vector3(80, 10, 0),
+		],
+	}),
+	material: new Material({
+		color: "#779ecb",
+	}),
+});
 const debug = {};
 let requestId;
 
@@ -28,11 +46,11 @@ function loop() {
 	delete debug.depth;
 
 	try {
-		const simplex = gjk(shape1, shape2);
+		const simplex = gjk(mesh1.getGeometry(), mesh2.getGeometry());
 		const intersecting = simplex !== null;
 
 		if (intersecting) {
-			const collision = epa(shape1, shape2, simplex);
+			const collision = epa(mesh1.getGeometry(), mesh2.getGeometry(), simplex);
 
 			if (collision !== null) {
 				debug.normal = collision.normal;
@@ -41,7 +59,8 @@ function loop() {
 				const repel = new Vector3(collision.normal)
 					.multiplyScalar(collision.depth);
 
-				shape2
+				mesh2
+					.getGeometry()
 					.getPosition()
 					.add(repel);
 			}
@@ -49,7 +68,7 @@ function loop() {
 
 		debug.intersecting = intersecting;
 
-		renderer.render(shape1, shape2, intersecting);
+		renderer.render(mesh1, mesh2, intersecting);
 		renderer.renderDebug(debug);
 	} catch (error) {
 		console.error(error);
@@ -74,5 +93,7 @@ renderer.getCanvas().addEventListener("mousemove", function(event) {
 		0,
 	);
 
-	shape1.setPosition(position);
+	mesh1
+		.getGeometry()
+		.setPosition(position);
 });

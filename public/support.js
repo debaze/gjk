@@ -1,15 +1,15 @@
+import {Geometry} from "../src/Geometry/index.js";
 import {Vector3} from "../src/math/index.js";
-import {Shape} from "../src/Shape/index.js";
 import {negate} from "./negate.js";
 
 /**
- * @param {Shape} shape1
- * @param {Shape} shape2
+ * @param {Geometry} g1
+ * @param {Geometry} g2
  * @param {Vector3} D
  */
-export function support(shape1, shape2, D) {
-	const s0 = shape1.support(D);
-	const s1 = shape2.support(negate(new Vector3(D)));
+export function support(g1, g2, D) {
+	const s0 = g1.support(D);
+	const s1 = g2.support(negate(new Vector3(D)));
 	const s = new Vector3(s0).subtract(s1);
 
 	return s;
