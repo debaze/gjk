@@ -25,7 +25,7 @@ export class Renderer {
 		const context = this.#canvas.getContext("2d");
 
 		if (context === null) {
-			throw new Error("Unable to get a 2D rendering ontext");
+			throw new Error("Unable to get a 2D rendering context");
 		}
 
 		this.#context = context;
@@ -60,7 +60,6 @@ export class Renderer {
 		this.#renderGrid();
 		this.#renderAxes();
 		this.#renderOrigin();
-
 		this.#renderShape(shape1, intersecting);
 		this.#renderShape(shape2, intersecting);
 	}
