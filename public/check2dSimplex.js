@@ -1,12 +1,12 @@
 import {Vector3} from "../src/math/index.js";
-import {lineCase} from "./lineCase.js";
+import {check1dSimplex} from "./check1dSimplex.js";
 import {negate} from "./negate.js";
 
 /**
  * @param {Vector3[]} simplex
  * @param {Vector3} D
  */
-export function triangleCase(simplex, D) {
+export function check2dSimplex(simplex, D) {
 	const [c, b, a] = simplex;
 	const ab = new Vector3(b).subtract(a);
 	const ac = new Vector3(c).subtract(a);
@@ -26,15 +26,27 @@ export function triangleCase(simplex, D) {
 		simplex.length = 0;
 		simplex.push(a, b);
 
-		return lineCase(simplex, D);
+		return check1dSimplex(simplex, D);
 	}
 
 	if (ab.cross(abc).dot(ao) > 0) {
 		simplex.length = 0;
 		simplex.push(a, b);
 
-		return lineCase(simplex, D);
+		return check1dSimplex(simplex, D);
 	}
 
-	return true;
+	if (abc.dot(ao) > 0) {
+		simplex.length = 0;
+		simplex.push(a, b, c);
+		D.set(abc);
+
+		return false;
+	}
+
+	simplex.length = 0;
+	simplex.push(a, c, b);
+	D.set(negate(abc));
+
+	return false;
 }

@@ -1,9 +1,10 @@
 import {Geometry} from "../src/Geometry/index.js";
 import {Vector3} from "../src/math/index.js";
-import {lineCase} from "./lineCase.js";
+import {check1dSimplex} from "./check1dSimplex.js";
+import {check2dSimplex} from "./check2dSimplex.js";
+import {check3dSimplex} from "./check3dSimplex.js";
 import {negate} from "./negate.js";
 import {support} from "./support.js";
-import {triangleCase} from "./triangleCase.js";
 
 /**
  * Max iterations tested: 4
@@ -41,13 +42,19 @@ export function gjk(g1, g2) {
 		simplex.push(a);
 
 		if (simplex.length === 2) {
-			lineCase(simplex, D);
+			check1dSimplex(simplex, D);
 
 			continue;
 		}
 
 		if (simplex.length === 3) {
-			if (triangleCase(simplex, D)) {
+			check2dSimplex(simplex, D);
+
+			continue;
+		}
+
+		if (simplex.length === 4) {
+			if (check3dSimplex(simplex, D)) {
 				return simplex;
 			}
 		}

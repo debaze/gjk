@@ -5,7 +5,7 @@ import {negate} from "./negate.js";
  * @param {Vector3[]} simplex
  * @param {Vector3} D
  */
-export function lineCase(simplex, D) {
+export function check1dSimplex(simplex, D) {
 	const [b, a] = simplex;
 	const ab = new Vector3(b).subtract(a);
 	const ao = negate(new Vector3(a));
