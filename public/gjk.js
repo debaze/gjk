@@ -3,7 +3,7 @@ import {Vector3} from "../src/math/index.js";
 import {check1dSimplex} from "./check1dSimplex.js";
 import {check2dSimplex} from "./check2dSimplex.js";
 import {check3dSimplex} from "./check3dSimplex.js";
-import {negate} from "./negate.js";
+import {negate} from "./helpers.js";
 import {support} from "./support.js";
 
 /**
@@ -27,6 +27,9 @@ export function gjk(g1, g2) {
 		return null;
 	}
 
+	/**
+	 * @type {import("./types.js").Simplex}
+	 */
 	const simplex = [a];
 
 	D.set(a);

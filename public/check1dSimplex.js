@@ -1,5 +1,5 @@
 import {Vector3} from "../src/math/index.js";
-import {negate} from "./negate.js";
+import {negate} from "./helpers.js";
 
 /**
  * @param {Vector3[]} simplex

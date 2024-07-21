@@ -1,6 +1,6 @@
 import {Vector3} from "../src/math/index.js";
 import {check2dSimplex} from "./check2dSimplex.js";
-import {negate} from "./negate.js";
+import {negate} from "./helpers.js";
 
 /**
  * @param {Vector3[]} simplex

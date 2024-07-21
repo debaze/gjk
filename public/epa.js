@@ -19,7 +19,7 @@ const EPA_THRESHOLD = 0.0001;
 /**
  * @param {Geometry} g1
  * @param {Geometry} g2
- * @param {Vector3[]} simplex
+ * @param {import("./types.js").Simplex} simplex
  */
 export function epa(g1, g2, simplex) {
 	for (let i = 0; i < MAX_ITERATIONS; i++) {
