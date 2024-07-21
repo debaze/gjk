@@ -10,6 +10,7 @@ export class Renderer {
 	static #DEBUG_TEXT_COLOR = "#757575";
 	static #INTERSECTION_EDGE_COLOR = "#ff746c";
 	static #INTERSECTION_BACKGROUND_COLOR = "#ff746c45";
+	static #SIMPLEX_COLOR = "#ff9800";
 
 	#canvas;
 	#context;
@@ -47,12 +48,7 @@ export class Renderer {
 		return this.#viewport;
 	}
 
-	/**
-	 * @param {Mesh} mesh1
-	 * @param {Mesh} mesh2
-	 * @param {Boolean} intersecting
-	 */
-	render(mesh1, mesh2, intersecting) {
+	render() {
 		const v = this.#viewport;
 
 		this.#context.clearRect(v[0], v[1], v[2], v[3]);
@@ -60,10 +56,74 @@ export class Renderer {
 		this.#renderGrid();
 		this.#renderAxes();
 		this.#renderOrigin();
-		this.#renderMesh(mesh1, intersecting);
-		this.#renderMesh(mesh2, intersecting);
-		this.#renderSupport(mesh1);
-		this.#renderSupport(mesh2);
+	}
+
+	/**
+	 * @param {Mesh} mesh
+	 * @param {Boolean} intersecting
+	 */
+	renderMesh(mesh, intersecting) {
+		const position = mesh.getPosition();
+		const geometry = mesh.getGeometry();
+		const material = mesh.getMaterial();
+
+		this.#context.save();
+
+		if (intersecting) {
+			this.#context.fillStyle = Renderer.#INTERSECTION_BACKGROUND_COLOR;
+			this.#context.strokeStyle = Renderer.#INTERSECTION_EDGE_COLOR;
+		} else {
+			this.#context.fillStyle = `${material.getColor()}45`;
+			this.#context.strokeStyle = material.getColor();
+		}
+
+		geometry.render(this.#context, position, this.#origin);
+
+		this.#context.stroke();
+		this.#context.fill();
+
+		this.#context.restore();
+	}
+
+	/**
+	 * @param {import("../public/types.js").Simplex} simplex
+	 */
+	renderSimplex(simplex) {
+		const O = this.#origin;
+
+		this.#context.save();
+
+		this.#context.fillStyle = `${Renderer.#SIMPLEX_COLOR}45`;
+		this.#context.strokeStyle = Renderer.#SIMPLEX_COLOR;
+
+		const v0 = new Vector3(
+			simplex[0][0] + O[0],
+			O[1] - simplex[0][1],
+			O[2],
+		);
+
+		this.#context.beginPath();
+		this.#context.moveTo(v0[0], v0[1]);
+
+		const indices = [0, 1, 3, 2];
+
+		for (let i = 0; i < simplex.length; i++) {
+			const j = indices[i];	
+			const vN = new Vector3(
+				simplex[j][0] + O[0],
+				O[1] - simplex[j][1],
+				O[2],
+			);
+
+			this.#context.lineTo(vN[0], vN[1]);
+		}
+
+		this.#context.lineTo(v0[0], v0[1]);
+
+		this.#context.stroke();
+		this.#context.fill();
+
+		this.#context.restore();
 	}
 
 	/**
@@ -156,37 +216,10 @@ export class Renderer {
 
 	/**
 	 * @param {Mesh} mesh
-	 * @param {Boolean} intersecting
-	 */
-	#renderMesh(mesh, intersecting) {
-		const position = mesh.getPosition();
-		const geometry = mesh.getGeometry();
-		const material = mesh.getMaterial();
-
-		this.#context.save();
-
-		if (intersecting) {
-			this.#context.fillStyle = Renderer.#INTERSECTION_BACKGROUND_COLOR;
-			this.#context.strokeStyle = Renderer.#INTERSECTION_EDGE_COLOR;
-		} else {
-			this.#context.fillStyle = `${material.getColor()}45`;
-			this.#context.strokeStyle = material.getColor();
-		}
-
-		geometry.render(this.#context, position, this.#origin);
-
-		this.#context.stroke();
-		this.#context.fill();
-
-		this.#context.restore();
-	}
-
-	/**
-	 * @param {Mesh} mesh
 	 */
 	#renderSupport(mesh) {
 		const O = this.#origin;
-		const D = new Vector3(-1, 0, 0);
+		const D = new Vector3(1, 1, 0);
 		const support = new Vector3(mesh.getGeometry().support(D));
 		support.add(mesh.getPosition());
 
@@ -197,6 +230,13 @@ export class Renderer {
 		this.#context.beginPath();
 		this.#context.arc(support[0] + O[0], -support[1] + O[1], 2, 0, PI * 2);
 		this.#context.fill();
+
+		this.#context.beginPath();
+		this.#context.moveTo(O[0], O[1]);
+		const t = new Vector2(D[0], D[1]).multiplyScalar(100);
+		const tmp = new Vector2(t[0] + O[0], -t[1] + O[1]);
+		this.#context.lineTo(tmp[0], tmp[1]);
+		this.#context.stroke();
 
 		this.#context.restore();
 	}

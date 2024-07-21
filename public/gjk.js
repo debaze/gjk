@@ -9,9 +9,11 @@ import {support} from "./support.js";
 /**
  * Max iterations tested: 4
  */
-const MAX_ITERATIONS = 8;
+const GJK_MAX_ITERATIONS = 8;
 
 /**
+ * Gilbert-Johnson-Keerthi
+ * 
  * @param {Mesh} mesh1
  * @param {Mesh} mesh2
  */
@@ -35,7 +37,7 @@ export function gjk(mesh1, mesh2) {
 	D.set(a);
 	negate(D);
 
-	for (let i = 0; i < MAX_ITERATIONS; i++) {
+	for (let i = 0; i < GJK_MAX_ITERATIONS; i++) {
 		const a = support(mesh1, mesh2, D);
 
 		if (a.dot(D) < 0) {
