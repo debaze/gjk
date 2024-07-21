@@ -67,7 +67,7 @@ function loop() {
 				const force = new Vector3(collision.normal)
 					.multiplyScalar(collision.depth + bias);
 
-				mesh1.getPosition().subtract(force);
+				mesh2.getPosition().add(force);
 			}
 		}
 
@@ -101,5 +101,5 @@ renderer.getCanvas().addEventListener("mousemove", function(event) {
 		0,
 	);
 
-	mesh1.getPosition().set(position);
+	mesh1.setPosition(position);
 });
