@@ -1,37 +1,12 @@
 import {Vector2, Vector3} from "../math/index.js";
 
 /**
- * @typedef {Object} GeometryDescriptor
- * @property {Vector3} position
- */
-
-/**
  * @abstract
  */
 export class Geometry {
-	#position;
-
-	/**
-	 * @param {GeometryDescriptor} descriptor
-	 */
-	constructor(descriptor) {
-		this.#position = descriptor.position;
-	}
-
-	getPosition() {
-		return this.#position;
-	}
-
-	/**
-	 * @param {Vector3} position
-	 */
-	setPosition(position) {
-		this.#position.set(position);
-	}
-
 	/**
 	 * @abstract
-	 * @param {Vector3} D
+	 * @param {Vector3} D Direction
 	 * @returns {Vector3}
 	 */
 	support(D) {
@@ -41,9 +16,10 @@ export class Geometry {
 	/**
 	 * @abstract
 	 * @param {CanvasRenderingContext2D} context
-	 * @param {Vector2} O
+	 * @param {Vector2} C Center
+	 * @param {Vector2} O Origin
 	 */
-	render(context, O) {
+	render(context, C, O) {
 		throw new Error("Not implemented");
 	}
 }

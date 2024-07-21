@@ -8,8 +8,8 @@ import {gjk} from "./gjk.js";
 
 const renderer = new Renderer();
 const mesh1 = new Mesh({
+	position: new Vector3(-25, 73.5, 0),
 	geometry: new PolygonGeometry({
-		position: new Vector3(-25, 73.5, 0),
 		vertices: [
 			new Vector3(-60, 0, 0),
 			new Vector3(0, 100, 0),
@@ -22,8 +22,8 @@ const mesh1 = new Mesh({
 	}),
 });
 const mesh2 = new Mesh({
+	position: new Vector3(-50, 30, 0),
 	geometry: new PolygonGeometry({
-		position: new Vector3(-50, 30, 0),
 		vertices: [
 			new Vector3(-30, 0, 0),
 			new Vector3(0, 30, 0),
@@ -46,23 +46,20 @@ function loop() {
 	delete debug.depth;
 
 	try {
-		const simplex = gjk(mesh1.getGeometry(), mesh2.getGeometry());
+		const simplex = gjk(mesh1, mesh2);
 		const intersecting = simplex !== null;
 
 		if (intersecting) {
-			const collision = epa(mesh1.getGeometry(), mesh2.getGeometry(), simplex);
+			const collision = epa(mesh1, mesh2, simplex);
 
 			if (collision !== null) {
 				debug.normal = collision.normal;
 				debug.depth = collision.depth;
 
-				const repel = new Vector3(collision.normal)
+				const force = new Vector3(collision.normal)
 					.multiplyScalar(collision.depth);
 
-				mesh2
-					.getGeometry()
-					.getPosition()
-					.add(repel);
+				// mesh2.getPosition().add(force);
 			}
 		}
 
@@ -93,7 +90,5 @@ renderer.getCanvas().addEventListener("mousemove", function(event) {
 		0,
 	);
 
-	mesh1
-		.getGeometry()
-		.setPosition(position);
+	mesh1.getPosition().set(position);
 });

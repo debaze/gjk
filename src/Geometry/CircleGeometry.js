@@ -10,32 +10,32 @@ export class CircleGeometry extends Geometry {
 	#radius;
 
 	/**
-	 * @param {import("./Geometry.js").GeometryDescriptor & CircleGeometryDescriptor} descriptor
+	 * @param {CircleGeometryDescriptor} descriptor
 	 */
 	constructor(descriptor) {
-		super(descriptor);
+		super();
 
 		this.#radius = descriptor.radius;
 	}
 
 	/**
-	 * @param {Vector3} D
+	 * @param {Vector3} D Direction
 	 */
 	support(D) {
-		return new Vector3(D)
+		return new Vector3(D[0], D[1], 0)
 			.normalize()
-			.multiplyScalar(this.#radius)
-			.add(this.getPosition());
+			.multiplyScalar(this.#radius);
 	}
 
 	/**
 	 * @param {CanvasRenderingContext2D} context
-	 * @param {Vector2} O
+	 * @param {Vector2} C Center
+	 * @param {Vector2} O Origin
 	 */
-	render(context, O) {
+	render(context, C, O) {
 		const position = new Vector3(
-			this.getPosition()[0] + O[0],
-			-this.getPosition()[1] + O[1],
+			C[0] + O[0],
+			-C[1] + O[1],
 			0,
 		);
 

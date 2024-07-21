@@ -1,4 +1,4 @@
-import {Vector2, Vector4} from "./math/index.js";
+import {PI, Vector2, Vector3, Vector4} from "./math/index.js";
 import {Mesh} from "./Mesh/index.js";
 
 export class Renderer {
@@ -62,6 +62,8 @@ export class Renderer {
 		this.#renderOrigin();
 		this.#renderMesh(mesh1, intersecting);
 		this.#renderMesh(mesh2, intersecting);
+		this.#renderSupport(mesh1);
+		this.#renderSupport(mesh2);
 	}
 
 	/**
@@ -157,6 +159,7 @@ export class Renderer {
 	 * @param {Boolean} intersecting
 	 */
 	#renderMesh(mesh, intersecting) {
+		const position = mesh.getPosition();
 		const geometry = mesh.getGeometry();
 		const material = mesh.getMaterial();
 
@@ -170,9 +173,29 @@ export class Renderer {
 			this.#context.strokeStyle = material.getColor();
 		}
 
-		geometry.render(this.#context, this.#origin);
+		geometry.render(this.#context, position, this.#origin);
 
 		this.#context.stroke();
+		this.#context.fill();
+
+		this.#context.restore();
+	}
+
+	/**
+	 * @param {Mesh} mesh
+	 */
+	#renderSupport(mesh) {
+		const O = this.#origin;
+		const D = new Vector3(-1, 0, 0);
+		const support = new Vector3(mesh.getGeometry().support(D));
+		support.add(mesh.getPosition());
+
+		this.#context.save();
+
+		this.#context.fillStyle = "#de1818";
+
+		this.#context.beginPath();
+		this.#context.arc(support[0] + O[0], -support[1] + O[1], 2, 0, PI * 2);
 		this.#context.fill();
 
 		this.#context.restore();

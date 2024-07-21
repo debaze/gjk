@@ -1,16 +1,18 @@
-import {Geometry} from "../src/Geometry/index.js";
 import {Vector3} from "../src/math/index.js";
+import {Mesh} from "../src/Mesh/index.js";
 import {negate} from "./helpers.js";
 
 /**
- * @param {Geometry} g1
- * @param {Geometry} g2
+ * @param {Mesh} mesh1
+ * @param {Mesh} mesh2
  * @param {Vector3} D
  */
-export function support(g1, g2, D) {
-	const s0 = g1.support(D);
-	const s1 = g2.support(negate(new Vector3(D)));
-	const s = new Vector3(s0).subtract(s1);
+export function support(mesh1, mesh2, D) {
+	const s0 = new Vector3(mesh1.getGeometry().support(D));
+	s0.add(mesh1.getPosition());
 
-	return s;
+	const s1 = new Vector3(mesh2.getGeometry().support(negate(new Vector3(D))));
+	s1.add(mesh2.getPosition());
+
+	return s0.subtract(s1);
 }

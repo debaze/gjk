@@ -13,10 +13,10 @@ export class PolygonGeometry extends Geometry {
 	#vertices;
 
 	/**
-	 * @param {import("./Geometry.js").GeometryDescriptor & PolygonGeometryDescriptor} descriptor
+	 * @param {PolygonGeometryDescriptor} descriptor
 	 */
 	constructor(descriptor) {
-		super(descriptor);
+		super();
 
 		if (descriptor.vertices.length < 3) {
 			throw new Error("Too few vertices provided");
@@ -30,15 +30,15 @@ export class PolygonGeometry extends Geometry {
 	}
 
 	/**
-	 * @param {Vector3} D
+	 * @param {Vector3} D Direction
 	 */
 	support(D) {
 		let pId = 0;
-		let pDot = this.#getClipSpaceVertex(0).dot(D);
+		let pDot = this.#vertices[0].dot(D);
 		let n = 2;
 		let order = 1;
 
-		const p1Dot = this.#getClipSpaceVertex(1).dot(D);
+		const p1Dot = this.#vertices[1].dot(D);
 
 		if (p1Dot > pDot) {
 			pId = 1;
@@ -49,7 +49,7 @@ export class PolygonGeometry extends Geometry {
 		}
 
 		for (let testCount = 2; testCount < this.#vertices.length; n += order, testCount++) {
-			const pNDot = this.#getClipSpaceVertex(n).dot(D);
+			const pNDot = this.#vertices[n].dot(D);
 
 			if (pNDot <= pDot) {
 				break;
@@ -59,46 +59,34 @@ export class PolygonGeometry extends Geometry {
 			pDot = pNDot;
 		}
 
-		return this.#getClipSpaceVertex(pId);
+		return this.#vertices[pId];
 	}
 
 	/**
 	 * @param {CanvasRenderingContext2D} context
-	 * @param {Vector2} O
+	 * @param {Vector2} C Center
+	 * @param {Vector2} O Origin
 	 */
-	render(context, O) {
+	render(context, C, O) {
 		context.beginPath();
 
 		const v0 = new Vector3(
-			this.getPosition()[0] + this.#vertices[0][0] + O[0],
-			O[1] - (this.getPosition()[1] + this.#vertices[0][1]),
-			this.getPosition()[2] + O[2],
+			C[0] + this.#vertices[0][0] + O[0],
+			O[1] - (C[1] + this.#vertices[0][1]),
+			C[2] + O[2],
 		);
 		context.moveTo(v0[0], v0[1]);
 
 		for (let n = 1; n < this.#vertices.length; n++) {
 			const vN = new Vector3(
-				this.getPosition()[0] + this.#vertices[n][0] + O[0],
-				O[1] - (this.getPosition()[1] + this.#vertices[n][1]),
-				this.getPosition()[2] + O[2],
+				C[0] + this.#vertices[n][0] + O[0],
+				O[1] - (C[1] + this.#vertices[n][1]),
+				C[2] + O[2],
 			);
 
 			context.lineTo(vN[0], vN[1]);
 		}
 
 		context.lineTo(v0[0], v0[1]);
-	}
-
-	/**
-	 * @param {Number} index
-	 * @throws {Exception} if the index overflows the vertex buffer
-	 */
-	#getClipSpaceVertex(index) {
-		if (index >= this.#vertices.length) {
-			throw new Error("Index overflow in vertex buffer");
-		}
-
-		return new Vector3(this.getPosition())
-			.add(this.#vertices[index]);
 	}
 }
