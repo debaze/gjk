@@ -2,7 +2,6 @@ import {Vector3} from "../src/math/index.js";
 import {Mesh} from "../src/Mesh/index.js";
 import {check1dSimplex} from "./check1dSimplex.js";
 import {check2dSimplex} from "./check2dSimplex.js";
-import {check3dSimplex} from "./check3dSimplex.js";
 import {negate} from "./helpers.js";
 import {support} from "./support.js";
 
@@ -53,16 +52,21 @@ export function gjk(mesh1, mesh2) {
 		}
 
 		if (simplex.length === 3) {
-			check2dSimplex(simplex, D);
+			/* check2dSimplex(simplex, D);
 
-			continue;
-		}
+			continue; */
 
-		if (simplex.length === 4) {
-			if (check3dSimplex(simplex, D)) {
+			// 2D test
+			if (check2dSimplex(simplex, D)) {
 				return simplex;
 			}
 		}
+
+		/* if (simplex.length === 4) {
+			if (check3dSimplex(simplex, D)) {
+				return simplex;
+			}
+		} */
 	}
 
 	return null;

@@ -33,12 +33,9 @@ export function closestEdge(polytope, winding) {
 		n[2] = e[2];
 		n.normalize();
 
-		// Could use a or b here
 		const d = n.dot(a);
 
 		if (d < closestEdge.distance) {
-			// d is now the closest distance
-
 			closestEdge.normal = n;
 			closestEdge.distance = d;
 			closestEdge.index = j;

@@ -1,5 +1,5 @@
 import {PolygonWinding} from "../src/index.js";
-import {Vector3} from "../src/math/Vector3.js";
+import {Vector3} from "../src/math/index.js";
 import {Mesh} from "../src/Mesh/index.js";
 import {closestEdge} from "./closestEdge.js";
 import {support} from "./support.js";

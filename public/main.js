@@ -52,20 +52,20 @@ function loop() {
 		const intersecting = simplex !== null;
 
 		if (intersecting) {
-			renderer.renderSimplex(simplex);
-			debug.simplex = simplex;
+			// renderer.renderSimplex(simplex);
 
 			const collision = epa(mesh1, mesh2, simplex);
 
 			if (collision !== null) {
 				// renderer.renderPolytope(collision.polytope);
-				renderer.renderCollision(collision);
+				// renderer.renderCollision(collision);
 
 				debug.normal = collision.normal;
 				debug.depth = collision.depth;
 
+				const bias = .001;
 				const force = new Vector3(collision.normal)
-					.multiplyScalar(collision.depth);
+					.multiplyScalar(collision.depth + bias);
 
 				mesh1.getPosition().subtract(force);
 			}

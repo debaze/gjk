@@ -1,4 +1,3 @@
-import {negate} from "../public/helpers.js";
 import {PI, Vector2, Vector3, Vector4} from "./math/index.js";
 import {Mesh} from "./Mesh/index.js";
 
@@ -107,7 +106,7 @@ export class Renderer {
 		this.#context.beginPath();
 		this.#context.moveTo(v0[0], v0[1]);
 
-		const orderedIndices = [0, 1, 3, 2];
+		const orderedIndices = [0, 1, /* 3, */ 2];
 
 		for (let i = 0; i < simplex.length; i++) {
 			const j = orderedIndices[i];
