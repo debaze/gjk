@@ -4,6 +4,23 @@ import {Vector2, Vector3} from "../math/index.js";
  * @abstract
  */
 export class Geometry {
+	#centerOfMass;
+
+	constructor() {
+		this.#centerOfMass = new Vector3(0, 0, 0);
+	}
+
+	getCenterOfMass() {
+		return this.#centerOfMass;
+	}
+
+	/**
+	 * @param {Vector3} centerOfMass
+	 */
+	_setCenterOfMass(centerOfMass) {
+		this.#centerOfMass.set(centerOfMass);
+	}
+
 	/**
 	 * @abstract
 	 * @param {Vector3} D Direction

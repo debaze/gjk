@@ -52,13 +52,13 @@ function loop() {
 		const intersecting = simplex !== null;
 
 		if (intersecting) {
-			// renderer.renderSimplex(simplex);
+			renderer.renderSimplex(simplex);
 
 			const collision = epa(mesh1, mesh2, simplex);
 
 			if (collision !== null) {
-				// renderer.renderPolytope(collision.polytope);
-				// renderer.renderCollision(collision);
+				renderer.renderPolytope(collision.polytope);
+				renderer.renderCollision(collision);
 
 				debug.normal = collision.normal;
 				debug.depth = collision.depth;
@@ -75,6 +75,8 @@ function loop() {
 
 		renderer.renderMesh(mesh1, intersecting);
 		renderer.renderMesh(mesh2, intersecting);
+		renderer.renderCenterOfMass(mesh1);
+		renderer.renderCenterOfMass(mesh2);
 		renderer.renderDebug(debug);
 	} catch (error) {
 		console.error(error);

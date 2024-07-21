@@ -87,6 +87,21 @@ export class Renderer {
 	}
 
 	/**
+	 * @param {Mesh} mesh
+	 */
+	renderCenterOfMass(mesh) {
+		const O = this.#origin;
+		const centerOfMass = new Vector3(mesh.getGeometry().getCenterOfMass()).add(mesh.getPosition());
+
+		this.#context.save();
+		this.#context.fillStyle = "blue";
+		this.#context.beginPath();
+		this.#context.arc(centerOfMass[0] + O[0], O[1] - centerOfMass[1], 2, 0, PI * 2);
+		this.#context.fill();
+		this.#context.restore();
+	}
+
+	/**
 	 * @param {import("../public/types.js").Simplex} simplex
 	 */
 	renderSimplex(simplex) {
@@ -171,7 +186,6 @@ export class Renderer {
 	renderCollision(collision) {
 		const O = this.#origin;
 		const normal = (new Vector3(collision.normal).multiplyScalar(collision.depth));
-		// console.log(collision, normal)
 
 		this.#context.save();
 

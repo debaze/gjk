@@ -23,10 +23,18 @@ export class PolygonGeometry extends Geometry {
 		}
 
 		this.#vertices = descriptor.vertices;
-	}
 
-	getVertices() {
-		return this.#vertices;
+		const centerOfMass = new Vector3(0, 0, 0);
+
+		for (let i = 0; i < this.#vertices.length; i++) {
+			const vertex = this.#vertices[i];
+
+			centerOfMass.add(vertex);
+		}
+
+		centerOfMass.divideScalar(this.#vertices.length);
+
+		super._setCenterOfMass(centerOfMass);
 	}
 
 	/**
