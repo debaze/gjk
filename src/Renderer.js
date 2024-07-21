@@ -1,3 +1,4 @@
+import {negate} from "../public/helpers.js";
 import {PI, Vector2, Vector3, Vector4} from "./math/index.js";
 import {Mesh} from "./Mesh/index.js";
 
@@ -10,7 +11,8 @@ export class Renderer {
 	static #DEBUG_TEXT_COLOR = "#757575";
 	static #INTERSECTION_EDGE_COLOR = "#ff746c";
 	static #INTERSECTION_BACKGROUND_COLOR = "#ff746c45";
-	static #SIMPLEX_COLOR = "#ff9800";
+	static #POLYTOPE_COLOR = "#ff9800";
+	static #COLLISION_COLOR = "#670066";
 
 	#canvas;
 	#context;
@@ -93,8 +95,8 @@ export class Renderer {
 
 		this.#context.save();
 
-		this.#context.fillStyle = `${Renderer.#SIMPLEX_COLOR}45`;
-		this.#context.strokeStyle = Renderer.#SIMPLEX_COLOR;
+		this.#context.fillStyle = `${Renderer.#POLYTOPE_COLOR}45`;
+		this.#context.strokeStyle = Renderer.#POLYTOPE_COLOR;
 
 		const v0 = new Vector3(
 			simplex[0][0] + O[0],
@@ -105,10 +107,10 @@ export class Renderer {
 		this.#context.beginPath();
 		this.#context.moveTo(v0[0], v0[1]);
 
-		const indices = [0, 1, 3, 2];
+		const orderedIndices = [0, 1, 3, 2];
 
 		for (let i = 0; i < simplex.length; i++) {
-			const j = indices[i];	
+			const j = orderedIndices[i];
 			const vN = new Vector3(
 				simplex[j][0] + O[0],
 				O[1] - simplex[j][1],
@@ -122,6 +124,64 @@ export class Renderer {
 
 		this.#context.stroke();
 		this.#context.fill();
+
+		this.#context.restore();
+	}
+
+	/**
+	 * @param {Vector3[]} polytope
+	 */
+	renderPolytope(polytope) {
+		const O = this.#origin;
+
+		this.#context.save();
+
+		this.#context.fillStyle = `${Renderer.#POLYTOPE_COLOR}45`;
+		this.#context.strokeStyle = Renderer.#POLYTOPE_COLOR;
+
+		const v0 = new Vector3(
+			polytope[0][0] + O[0],
+			O[1] - polytope[0][1],
+			O[2],
+		);
+
+		this.#context.beginPath();
+		this.#context.moveTo(v0[0], v0[1]);
+
+		for (let i = 0; i < polytope.length; i++) {
+			const vN = new Vector3(
+				polytope[i][0] + O[0],
+				O[1] - polytope[i][1],
+				O[2],
+			);
+
+			this.#context.lineTo(vN[0], vN[1]);
+		}
+
+		this.#context.lineTo(v0[0], v0[1]);
+
+		// this.#context.stroke();
+		this.#context.fill();
+
+		this.#context.restore();
+	}
+
+	/**
+	 * @param {import("../public/epa.js").Collision} collision
+	 */
+	renderCollision(collision) {
+		const O = this.#origin;
+		const normal = (new Vector3(collision.normal).multiplyScalar(collision.depth));
+		// console.log(collision, normal)
+
+		this.#context.save();
+
+		this.#context.strokeStyle = Renderer.#COLLISION_COLOR;
+
+		this.#context.beginPath();
+		this.#context.moveTo(O[0], O[1]);
+		this.#context.lineTo(normal[0] + O[0], O[1] - normal[1]);
+		this.#context.stroke();
 
 		this.#context.restore();
 	}

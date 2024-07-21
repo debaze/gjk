@@ -8,6 +8,7 @@ import {support} from "./support.js";
  * @typedef {Object} Collision
  * @property {Vector3} normal
  * @property {Number} depth
+ * @property {Vector3[]} polytope
  */
 
 /**
@@ -37,6 +38,7 @@ export function epa(mesh1, mesh2, simplex) {
 			const collision = {
 				normal: e.normal,
 				depth: e.distance,
+				polytope,
 			};
 
 			return collision;

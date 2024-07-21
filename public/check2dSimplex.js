@@ -36,6 +36,9 @@ export function check2dSimplex(simplex, D) {
 		return check1dSimplex(simplex, D);
 	}
 
+	// 2D test
+	return true;
+
 	if (abc.dot(ao) > 0) {
 		simplex.length = 0;
 		simplex.push(a, b, c);
