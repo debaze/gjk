@@ -1,5 +1,4 @@
 import {Vector3} from "../src/math/index.js";
-import {negate} from "./helpers.js";
 
 /**
  * @param {Vector3[]} simplex
@@ -8,7 +7,7 @@ import {negate} from "./helpers.js";
 export function check1dSimplex(simplex, D) {
 	const [b, a] = simplex;
 	const ab = new Vector3(b).subtract(a);
-	const ao = negate(new Vector3(a));
+	const ao = new Vector3(a).negate();
 
 	if (ab.dot(ao) > 0) {
 		D.set(ab.cross(ao).cross(ab));

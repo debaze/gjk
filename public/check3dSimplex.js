@@ -1,6 +1,5 @@
 import {Vector3} from "../src/math/index.js";
 import {check2dSimplex} from "./check2dSimplex.js";
-import {negate} from "./helpers.js";
 
 /**
  * @param {Vector3[]} simplex
@@ -14,7 +13,7 @@ export function check3dSimplex(simplex, D) {
 	const bc = new Vector3(c).subtract(b);
 	const cd = new Vector3(d).subtract(c);
 	const db = new Vector3(b).subtract(d);
-	const ao = negate(new Vector3(a));
+	const ao = new Vector3(a).negate();
 	const abc = ab.cross(bc);
 	const acd = ac.cross(cd);
 	const adb = ad.cross(db);

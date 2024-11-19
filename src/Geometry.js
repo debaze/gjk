@@ -1,40 +1,35 @@
-import {Vector2, Vector3} from "../math/index.js";
-import {Geometry} from "./Geometry.js";
+import {Vector3} from "./math/index.js";
 
-/**
- * @typedef {Object} PolygonGeometryDescriptor
- * @property {Vector3[]} vertices
- */
-
-export class PolygonGeometry extends Geometry {
-	/**
-	 * @type {Vector3[]}
-	 */
+export class Geometry {
 	#vertices;
+	#centerOfMass;
 
 	/**
-	 * @param {PolygonGeometryDescriptor} descriptor
+	 * @param {Vector3[]} vertices
 	 */
-	constructor(descriptor) {
-		super();
-
-		if (descriptor.vertices.length < 3) {
-			throw new Error("Too few vertices provided");
+	constructor(vertices) {
+		if (vertices.length < 3) {
+			throw new Error("Too few vertices provided.");
 		}
 
-		this.#vertices = descriptor.vertices;
-
-		const centerOfMass = new Vector3(0, 0, 0);
+		this.#vertices = vertices;
+		this.#centerOfMass = new Vector3(0, 0, 0);
 
 		for (let i = 0; i < this.#vertices.length; i++) {
 			const vertex = this.#vertices[i];
 
-			centerOfMass.add(vertex);
+			this.#centerOfMass.add(vertex);
 		}
 
-		centerOfMass.divideScalar(this.#vertices.length);
+		this.#centerOfMass.divideScalar(this.#vertices.length);
+	}
 
-		super._setCenterOfMass(centerOfMass);
+	getVertices() {
+		return this.#vertices;
+	}
+
+	getCenterOfMass() {
+		return this.#centerOfMass;
 	}
 
 	/**
@@ -72,8 +67,8 @@ export class PolygonGeometry extends Geometry {
 
 	/**
 	 * @param {CanvasRenderingContext2D} context
-	 * @param {Vector2} C Center
-	 * @param {Vector2} O Origin
+	 * @param {import("./math/index").Vector2} C Center
+	 * @param {import("./math/index").Vector2} O Origin
 	 */
 	render(context, C, O) {
 		context.beginPath();

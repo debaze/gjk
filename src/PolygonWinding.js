@@ -1,7 +1,7 @@
 /**
- * @enum {String}
+ * @enum {Number}
  */
 export const PolygonWinding = {
-	CLOCKWISE: "clockwise",
-	COUNTER_CLOCKWISE: "counterClockwise",
+	CLOCKWISE: 0,
+	COUNTER_CLOCKWISE: 1,
 };

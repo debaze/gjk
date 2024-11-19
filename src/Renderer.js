@@ -1,11 +1,10 @@
-import {PI, Vector2, Vector3, Vector4} from "./math/index.js";
-import {Mesh} from "./Mesh/index.js";
+import {clamp, inverse, Matrix3, Vector2, Vector3} from "./math/index.js";
 
 export class Renderer {
-	static #COLUMN_GAP = 16;
-	static #ROW_GAP = 16;
-	static #AXIS_COLOR = "#cccccc";
-	static #GRID_COLOR = "#eeeeee";
+	// Zoom
+	static #MIN_ZOOM_LEVEL = 1;
+	static #MAX_ZOOM_LEVEL = 8;
+
 	static #AXIS_TEXT_COLOR = "#cccccc";
 	static #DEBUG_TEXT_COLOR = "#757575";
 	static #INTERSECTION_EDGE_COLOR = "#ff746c";
@@ -13,304 +12,309 @@ export class Renderer {
 	static #POLYTOPE_COLOR = "#ff9800";
 	static #COLLISION_COLOR = "#670066";
 
+	// Background
+	static #BACKGROUND_COLOR = "#111111";
+
+	// Grid
+	static #GRID_COLUMN_GAP = 16;
+	static #GRID_ROW_GAP = 16;
+	static #GRID_COLOR = "#222222";
+
+	// Axes
+	static #AXIS_COLOR = "#333333";
+
+	// Hovering
+	static #HOVER_FILL_COLOR = "#273ea520";
+	static #HOVER_STROKE_COLOR = "#273ea550";
+
+	// Debug
+	static #DEBUG_TOOLTIP_MARGIN = new Vector2(8, 8);
+	static #DEBUG_TOOLTIP_SIZE = new Vector2(120, 30);
+	static #DEBUG_TOOLTIP_BACKGROUND_COLOR = "#000000a0";
+
 	#canvas;
-	#context;
-	#origin;
-	#viewport;
+
+	#transform = Matrix3.identity();
+
+	#transformInverse = Matrix3.identity();
+
+	/**
+	 * @type {?CanvasRenderingContext2D}
+	 */
+	#context = null;
+
+	#viewport = new Vector2(0, 0);
+
+	#resized = true;
+
+	#transformed = true;
+
+	#zoomLevel = Renderer.#MIN_ZOOM_LEVEL;
+
+	#mouse = new Vector2(0, 0);
+
+	#dragPosition = new Vector2(0, 0);
+
+	#debugTooltipSize = new Vector2(Renderer.#DEBUG_TOOLTIP_SIZE);
+
+	/**
+	 * @type {?import("./index.js").Scene}
+	 */
+	#scene = null;
+
+	/**
+	 * @type {?Number}
+	 */
+	#hoveredObjectIndex = null;
+
+	/**
+	 * @type {?Number}
+	 */
+	#draggedObjectIndex = null;
 
 	constructor() {
 		this.#canvas = document.createElement("canvas");
-		this.#origin = new Vector2(0, 0);
-		this.#viewport = new Vector4(0, 0, 0, 0);
-		this.resize();
+		this.#context = this.#canvas.getContext("2d");
 
-		const context = this.#canvas.getContext("2d");
-
-		if (context === null) {
-			throw new Error("Unable to get a 2D rendering context");
+		if (this.#context === null) {
+			throw new Error("Could not get a 2D rendering context.");
 		}
-
-		this.#context = context;
 	}
 
 	getCanvas() {
 		return this.#canvas;
 	}
 
-	getContext() {
-		return this.#context;
+	getScene() {
+		return this.#scene;
 	}
 
-	getOrigin() {
-		return this.#origin;
-	}
-
-	getViewport() {
-		return this.#viewport;
+	/**
+	 * @param {import("./index.js").Scene} scene
+	 */
+	setScene(scene) {
+		this.#scene = scene;
 	}
 
 	render() {
-		const v = this.#viewport;
+		if (!this.#resized) {
+			this.#resize();
+		}
 
-		this.#context.clearRect(v[0], v[1], v[2], v[3]);
+		if (!this.#transformed) {
+			this.#updateTransform();
+		}
+
+		this.#clear();
 
 		this.#renderGrid();
 		this.#renderAxes();
-		this.#renderOrigin();
-	}
 
-	/**
-	 * @param {Mesh} mesh
-	 * @param {Boolean} intersecting
-	 */
-	renderMesh(mesh, intersecting) {
-		const position = mesh.getPosition();
-		const geometry = mesh.getGeometry();
-		const material = mesh.getMaterial();
+		this.#renderScene();
 
-		this.#context.save();
-
-		if (intersecting) {
-			this.#context.fillStyle = Renderer.#INTERSECTION_BACKGROUND_COLOR;
-			this.#context.strokeStyle = Renderer.#INTERSECTION_EDGE_COLOR;
-		} else {
-			this.#context.fillStyle = `${material.getColor()}45`;
-			this.#context.strokeStyle = material.getColor();
-		}
-
-		geometry.render(this.#context, position, this.#origin);
-
-		this.#context.stroke();
-		this.#context.fill();
-
-		this.#context.restore();
-	}
-
-	/**
-	 * @param {Mesh} mesh
-	 */
-	renderCenterOfMass(mesh) {
-		const O = this.#origin;
-		const centerOfMass = new Vector3(mesh.getGeometry().getCenterOfMass()).add(mesh.getPosition());
-
-		this.#context.save();
-		this.#context.fillStyle = "blue";
-		this.#context.beginPath();
-		this.#context.arc(centerOfMass[0] + O[0], O[1] - centerOfMass[1], 2, 0, PI * 2);
-		this.#context.fill();
-		this.#context.restore();
-	}
-
-	/**
-	 * @param {import("../public/types.js").Simplex} simplex
-	 */
-	renderSimplex(simplex) {
-		const O = this.#origin;
-
-		this.#context.save();
-
-		this.#context.fillStyle = `${Renderer.#POLYTOPE_COLOR}45`;
-		this.#context.strokeStyle = Renderer.#POLYTOPE_COLOR;
-
-		const v0 = new Vector3(
-			simplex[0][0] + O[0],
-			O[1] - simplex[0][1],
-			O[2],
-		);
-
-		this.#context.beginPath();
-		this.#context.moveTo(v0[0], v0[1]);
-
-		const orderedIndices = [0, 1, /* 3, */ 2];
-
-		for (let i = 0; i < simplex.length; i++) {
-			const j = orderedIndices[i];
-			const vN = new Vector3(
-				simplex[j][0] + O[0],
-				O[1] - simplex[j][1],
-				O[2],
-			);
-
-			this.#context.lineTo(vN[0], vN[1]);
-		}
-
-		this.#context.lineTo(v0[0], v0[1]);
-
-		this.#context.stroke();
-		this.#context.fill();
-
-		this.#context.restore();
-	}
-
-	/**
-	 * @param {Vector3[]} polytope
-	 */
-	renderPolytope(polytope) {
-		const O = this.#origin;
-
-		this.#context.save();
-
-		this.#context.fillStyle = `${Renderer.#POLYTOPE_COLOR}45`;
-		this.#context.strokeStyle = Renderer.#POLYTOPE_COLOR;
-
-		const v0 = new Vector3(
-			polytope[0][0] + O[0],
-			O[1] - polytope[0][1],
-			O[2],
-		);
-
-		this.#context.beginPath();
-		this.#context.moveTo(v0[0], v0[1]);
-
-		for (let i = 0; i < polytope.length; i++) {
-			const vN = new Vector3(
-				polytope[i][0] + O[0],
-				O[1] - polytope[i][1],
-				O[2],
-			);
-
-			this.#context.lineTo(vN[0], vN[1]);
-		}
-
-		this.#context.lineTo(v0[0], v0[1]);
-
-		// this.#context.stroke();
-		this.#context.fill();
-
-		this.#context.restore();
-	}
-
-	/**
-	 * @param {import("../public/epa.js").Collision} collision
-	 */
-	renderCollision(collision) {
-		const O = this.#origin;
-		const normal = (new Vector3(collision.normal).multiplyScalar(collision.depth));
-
-		this.#context.save();
-
-		this.#context.strokeStyle = Renderer.#COLLISION_COLOR;
-
-		this.#context.beginPath();
-		this.#context.moveTo(O[0], O[1]);
-		this.#context.lineTo(normal[0] + O[0], O[1] - normal[1]);
-		this.#context.stroke();
-
-		this.#context.restore();
-	}
-
-	/**
-	 * @param {Record.<String, *>} objects
-	 */
-	renderDebug(objects) {
-		const objectEntries = Object.entries(objects);
-		let y = 20;
-
-		this.#context.fillStyle = Renderer.#DEBUG_TEXT_COLOR;
-		this.#context.font = "12px Consolas";
-
-		for (const [name, value] of objectEntries) {
-			this.#context.fillText(`${name}: ${value}`, 8, y);
-
-			y += 12;
+		if (this.#hoveredObjectIndex !== null) {
+			this.#renderDebug();
 		}
 	}
 
-	resize() {
-		this.#canvas.width = innerWidth;
-		this.#canvas.height = innerHeight;
+	/**
+	 * @param {Vector2} client
+	 */
+	onMouseDown(client) {
+		if (this.#hoveredObjectIndex === null) {
+			return;
+		}
 
-		this.#origin[0] = this.#canvas.width / 2;
-		this.#origin[1] = this.#canvas.height / 2;
+		this.#draggedObjectIndex = this.#hoveredObjectIndex;
 
-		this.#viewport[2] = this.#canvas.width;
-		this.#viewport[3] = this.#canvas.height;
+		this.#dragPosition.set(client);
+		this.#dragPosition.multiplyMatrix(this.#transformInverse);
+	}
+
+	/**
+	 * @param {Vector2} client
+	 */
+	onMouseMove(client) {
+		this.#mouse.set(client);
+		this.#mouse.multiplyMatrix(this.#transformInverse);
+
+		if (this.#draggedObjectIndex !== null) {
+			const object = this.#scene.getObjects()[this.#draggedObjectIndex];
+			const drag = new Vector2(this.#mouse).subtract(this.#dragPosition);
+
+			object.getPosition().add(new Vector3(drag.x, drag.y, 0));
+
+			this.#dragPosition.set(this.#mouse);
+		}
+	}
+
+	onMouseUp() {
+		this.#dragPosition.reset();
+		this.#draggedObjectIndex = null;
+	}
+
+	/**
+	 * @param {Vector2} viewport
+	 */
+	onResize(viewport) {
+		this.#viewport.set(viewport);
+
+		this.#resized = false;
+	}
+
+	/**
+	 * @param {Number} direction
+	 */
+	onScroll(direction) {
+		this.#zoomLevel = clamp(this.#zoomLevel + direction, Renderer.#MIN_ZOOM_LEVEL, Renderer.#MAX_ZOOM_LEVEL);
+
+		this.#transformed = false;
+	}
+
+	#clear() {
+		const v = this.#viewport;
+
+		this.#context.fillStyle = Renderer.#BACKGROUND_COLOR;
+		this.#context.fillRect(-v.x * 0.5, -v.y * 0.5, v.x, v.y);
 	}
 
 	#renderGrid() {
-		const O = this.#origin;
 		const v = this.#viewport;
 
 		this.#context.strokeStyle = Renderer.#GRID_COLOR;
 		this.#context.beginPath();
 
-		// Render negative columns
-		for (let x = O[0]; x > v[0]; x -= Renderer.#COLUMN_GAP) {
-			this.#context.moveTo(x, v[1]);
-			this.#context.lineTo(x, v[3]);
+		// Draw columns.
+		for (let x = Renderer.#GRID_COLUMN_GAP; x < v.x * 0.5; x += Renderer.#GRID_COLUMN_GAP) {
+			this.#context.moveTo(-x, -v.y * 0.5);
+			this.#context.lineTo(-x, v.y * 0.5);
+			this.#context.moveTo(x, -v.y * 0.5);
+			this.#context.lineTo(x, v.y * 0.5);
 		}
 
-		// Render positive columns
-		for (let x = O[0]; x < v[2]; x += Renderer.#COLUMN_GAP) {
-			this.#context.moveTo(x, v[1]);
-			this.#context.lineTo(x, v[3]);
-		}
-
-		// Render positive rows
-		for (let y = O[1]; y > v[1]; y -= Renderer.#ROW_GAP) {
-			this.#context.moveTo(v[0], y);
-			this.#context.lineTo(v[2], y);
-		}
-
-		// Render negative rows
-		for (let y = O[1]; y < v[3]; y += Renderer.#ROW_GAP) {
-			this.#context.moveTo(v[0], y);
-			this.#context.lineTo(v[2], y);
+		// Draw rows.
+		for (let y = Renderer.#GRID_ROW_GAP; y < v.y * 0.5; y += Renderer.#GRID_ROW_GAP) {
+			this.#context.moveTo(-v.x * 0.5, -y);
+			this.#context.lineTo(v.x * 0.5, -y);
+			this.#context.moveTo(-v.x * 0.5, y);
+			this.#context.lineTo(v.x * 0.5, y);
 		}
 
 		this.#context.stroke();
 	}
 
 	#renderAxes() {
-		const O = this.#origin;
 		const v = this.#viewport;
 
 		this.#context.strokeStyle = Renderer.#AXIS_COLOR;
 		this.#context.beginPath();
 
-		// Render X axis
-		this.#context.moveTo(v[0], O[1]);
-		this.#context.lineTo(v[2], O[1]);
+		// Draw horizontal axis.
+		this.#context.moveTo(-v.x * 0.5, 0);
+		this.#context.lineTo(v.x * 0.5, 0);
 
-		// Render Y axis
-		this.#context.moveTo(O[0], v[1]);
-		this.#context.lineTo(O[0], v[3]);
+		// Draw vertical axis.
+		this.#context.moveTo(0, -v.y * 0.5);
+		this.#context.lineTo(0, v.y * 0.5);
 
 		this.#context.stroke();
 	}
 
-	#renderOrigin() {
-		const O = this.#origin;
+	#renderScene() {
+		const objects = this.#scene.getObjects();
 
-		this.#context.fillStyle = Renderer.#AXIS_TEXT_COLOR;
-		this.#context.font = "10px Consolas";
-		this.#context.fillText("O", O[0] + 3, O[1] - 4);
+		for (let objectIndex = 0; objectIndex < objects.length; objectIndex++) {
+			const object = objects[objectIndex];
+
+			this.#renderObject(object, objectIndex);
+		}
 	}
 
 	/**
-	 * @param {Mesh} mesh
+	 * @param {import("./index.js").Object} object
+	 * @param {Number} index
 	 */
-	#renderSupport(mesh) {
-		const O = this.#origin;
-		const D = new Vector3(1, 1, 0);
-		const support = new Vector3(mesh.getGeometry().support(D));
-		support.add(mesh.getPosition());
+	#renderObject(object, index) {
+		const geometry = object.getGeometry();
+		const vertices = geometry.getVertices();
+		const p = object.getPosition();
+		const v0 = vertices[0];
 
 		this.#context.save();
-
-		this.#context.fillStyle = "#de1818";
-
 		this.#context.beginPath();
-		this.#context.arc(support[0] + O[0], -support[1] + O[1], 2, 0, PI * 2);
+
+		this.#context.translate(p.x, p.y);
+		this.#context.moveTo(v0.x, v0.y);
+
+		for (let vertexIndex = 1; vertexIndex < vertices.length; vertexIndex++) {
+			const v = vertices[vertexIndex];
+
+			this.#context.lineTo(v.x, v.y);
+		}
+
+		this.#context.lineTo(v0.x, v0.y);
+
+		const mouse = new Vector2(this.#mouse).multiplyMatrix(this.#transform);
+		const isHovering = this.#context.isPointInPath(mouse.x, mouse.y);
+
+		if (isHovering) {
+			this.#hoveredObjectIndex = index;
+
+			this.#context.fillStyle = Renderer.#HOVER_FILL_COLOR;
+			this.#context.strokeStyle = Renderer.#HOVER_STROKE_COLOR;
+		}
+		else {
+			if (this.#hoveredObjectIndex === index) {
+				this.#hoveredObjectIndex = null;
+			}
+
+			this.#context.fillStyle = object.getMaterial().getFillColor();
+			this.#context.strokeStyle = object.getMaterial().getStrokeColor();
+		}
+
 		this.#context.fill();
-
-		this.#context.beginPath();
-		this.#context.moveTo(O[0], O[1]);
-		const t = new Vector2(D[0], D[1]).multiplyScalar(100);
-		const tmp = new Vector2(t[0] + O[0], -t[1] + O[1]);
-		this.#context.lineTo(tmp[0], tmp[1]);
 		this.#context.stroke();
 
 		this.#context.restore();
+	}
+
+	#renderDebug() {
+		this.#renderDebugTooltip();
+	}
+
+	#renderDebugTooltip() {
+		this.#context.fillStyle = Renderer.#DEBUG_TOOLTIP_BACKGROUND_COLOR;
+
+		const tooltipX = (this.#mouse.x); // + Renderer.#DEBUG_TOOLTIP_MARGIN.x) / this.#zoomLevel;
+		const tooltipY = (this.#mouse.y); // - Renderer.#DEBUG_TOOLTIP_MARGIN.y) / this.#zoomLevel;
+
+		const flipX = Number(tooltipX + this.#debugTooltipSize.x <= this.#viewport.x * 0.5) * 2 - 1;
+		const flipY = Number(tooltipY - this.#debugTooltipSize.y <= -this.#viewport.y * 0.5) * 2 - 1;
+
+		this.#context.fillRect(tooltipX, tooltipY, this.#debugTooltipSize.x * flipX / this.#zoomLevel, this.#debugTooltipSize.y * flipY / this.#zoomLevel);
+	}
+
+	#resize() {
+		this.#canvas.width = this.#viewport.x;
+		this.#canvas.height = this.#viewport.y;
+
+		this.#updateTransform();
+
+		this.#resized = true;
+	}
+
+	#updateTransform() {
+		const translationBias = new Vector2(1 - this.#viewport.x % 2, 1 - this.#viewport.y % 2);
+
+		this.#transform.set(Matrix3.identity());
+		this.#transform.multiply(Matrix3.translation(new Vector2(this.#viewport).add(translationBias).multiplyScalar(0.5)));
+		this.#transform.multiply(Matrix3.scale(new Vector2(1, -1).multiplyScalar(this.#zoomLevel)));
+
+		this.#transformInverse = inverse(this.#transform);
+
+		this.#context.setTransform(this.#transform[0], 0, 0, this.#transform[4], this.#transform[6], this.#transform[7]);
+		this.#context.lineWidth = 1 / this.#zoomLevel;
+
+		this.#transformed = true;
 	}
 }
