@@ -1,15 +1,15 @@
-import {Vector3} from "./math/index.js";
+import {Vector2} from "./math/index.js";
 
 export class Object {
 	#position;
-	#velocity = new Vector3(0, 0, 0);
-	#acceleration = new Vector3(0, 0, 0);
-	#force = new Vector3(0, 0, 0);
+	#velocity = new Vector2(0, 0);
+	#acceleration = new Vector2(0, 0);
+	#force = new Vector2(0, 0);
 	#geometry;
 	#material;
 
 	/**
-	 * @param {import("./math/index.js").Vector3} position
+	 * @param {import("./math/index.js").Vector2} position
 	 * @param {import("./index.js").Geometry} geometry
 	 * @param {import("./index.js").Material} material
 	 */

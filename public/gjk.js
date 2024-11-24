@@ -1,7 +1,13 @@
 import {Vector3} from "../src/math/index.js";
 import {check1dSimplex} from "./check1dSimplex.js";
 import {check2dSimplex} from "./check2dSimplex.js";
-import {support} from "./support.js";
+import {minkowskiSupport} from "./minkowskiSupport.js";
+
+/**
+ * @typedef {Object} GJKResponse
+ * @property {Vector3[]} simplex
+ * @property {Number} distance
+ */
 
 /**
  * Max iterations tested: 4
@@ -14,56 +20,62 @@ const GJK_MAX_ITERATIONS = 8;
  */
 export function GilbertJohnsonKeerthi(object1, object2) {
 	/**
-	 * Found (0, 1, 0) to result in no more than 3 iterations
-	 * before getting a response
+	 * @type {GJKResponse}
 	 */
+	const response = {};
+
+	response.simplex = [];
+	response.distance = 0;
+
+	// Start with an arbitrary direction.
 	const D = new Vector3(0, 1, 0);
-	const a = support(object1, object2, D);
+	const a = minkowskiSupport(object1, object2, D);
 
 	if (a.dot(D) < 0) {
-		return null;
+		response.distance = D.magnitude();
+
+		return response;
 	}
 
-	/**
-	 * @type {import("./types.js").Simplex}
-	 */
-	const simplex = [a];
+	response.simplex.push(a);
 
 	D.set(a);
 	D.negate();
 
 	for (let i = 0; i < GJK_MAX_ITERATIONS; i++) {
-		const a = support(object1, object2, D);
+		const a = minkowskiSupport(object1, object2, D);
 
 		if (a.dot(D) < 0) {
-			return null;
+			response.distance = D.magnitude();
+
+			return response;
 		}
 
-		simplex.push(a);
+		response.simplex.push(a);
 
-		if (simplex.length === 2) {
-			check1dSimplex(simplex, D);
+		if (response.simplex.length === 2) {
+			check1dSimplex(response.simplex, D);
 
 			continue;
 		}
 
-		if (simplex.length === 3) {
+		if (response.simplex.length === 3) {
 			/* check2dSimplex(simplex, D);
 
 			continue; */
 
 			// 2D test
-			if (check2dSimplex(simplex, D)) {
-				return simplex;
+			if (check2dSimplex(response.simplex, D)) {
+				return response;
 			}
 		}
 
-		/* if (simplex.length === 4) {
-			if (check3dSimplex(simplex, D)) {
-				return simplex;
+		/* if (response.simplex.length === 4) {
+			if (check3dSimplex(response.simplex, D)) {
+				return response;
 			}
 		} */
 	}
 
-	return null;
+	return response;
 }

@@ -1,10 +1,7 @@
-import {clamp, inverse, Matrix3, Vector2, Vector3} from "./math/index.js";
+import {Application} from "./index.js";
+import {clamp, cross, inverse, Matrix3, pi, Vector2, Vector3} from "./math/index.js";
 
 export class Renderer {
-	// Zoom
-	static #MIN_ZOOM_LEVEL = 1;
-	static #MAX_ZOOM_LEVEL = 8;
-
 	static #AXIS_TEXT_COLOR = "#cccccc";
 	static #DEBUG_TEXT_COLOR = "#757575";
 	static #INTERSECTION_EDGE_COLOR = "#ff746c";
@@ -16,8 +13,8 @@ export class Renderer {
 	static #BACKGROUND_COLOR = "#111111";
 
 	// Grid
-	static #GRID_COLUMN_GAP = 16;
-	static #GRID_ROW_GAP = 16;
+	static #GRID_COLUMN_GAP = 1;
+	static #GRID_ROW_GAP = 1;
 	static #GRID_COLOR = "#222222";
 
 	// Axes
@@ -34,26 +31,15 @@ export class Renderer {
 
 	#canvas;
 
-	#transform = Matrix3.identity();
-
-	#transformInverse = Matrix3.identity();
-
 	/**
 	 * @type {?CanvasRenderingContext2D}
 	 */
 	#context = null;
 
-	#viewport = new Vector2(0, 0);
-
-	#resized = true;
-
-	#transformed = true;
-
-	#zoomLevel = Renderer.#MIN_ZOOM_LEVEL;
-
-	#mouse = new Vector2(0, 0);
-
-	#dragPosition = new Vector2(0, 0);
+	/**
+	 * @type {?import("./Application.js").View}
+	 */
+	#view = null;
 
 	#debugTooltipSize = new Vector2(Renderer.#DEBUG_TOOLTIP_SIZE);
 
@@ -61,16 +47,6 @@ export class Renderer {
 	 * @type {?import("./index.js").Scene}
 	 */
 	#scene = null;
-
-	/**
-	 * @type {?Number}
-	 */
-	#hoveredObjectIndex = null;
-
-	/**
-	 * @type {?Number}
-	 */
-	#draggedObjectIndex = null;
 
 	constructor() {
 		this.#canvas = document.createElement("canvas");
@@ -97,125 +73,76 @@ export class Renderer {
 	}
 
 	render() {
-		if (!this.#resized) {
-			this.#resize();
-		}
-
-		if (!this.#transformed) {
-			this.#updateTransform();
-		}
-
 		this.#clear();
 
 		this.#renderGrid();
 		this.#renderAxes();
 
-		this.#renderScene();
+		this.#renderScene()
 
-		if (this.#hoveredObjectIndex !== null) {
-			this.#renderDebug();
-		}
-	}
-
-	/**
-	 * @param {Vector2} client
-	 */
-	onMouseDown(client) {
-		if (this.#hoveredObjectIndex === null) {
-			return;
+		if (this.#scene.getGJKResponse() !== null) {
+			this.#renderGJKResponse(this.#scene.getGJKResponse());
 		}
 
-		this.#draggedObjectIndex = this.#hoveredObjectIndex;
-
-		this.#dragPosition.set(client);
-		this.#dragPosition.multiplyMatrix(this.#transformInverse);
-	}
-
-	/**
-	 * @param {Vector2} client
-	 */
-	onMouseMove(client) {
-		this.#mouse.set(client);
-		this.#mouse.multiplyMatrix(this.#transformInverse);
-
-		if (this.#draggedObjectIndex !== null) {
-			const object = this.#scene.getObjects()[this.#draggedObjectIndex];
-			const drag = new Vector2(this.#mouse).subtract(this.#dragPosition);
-
-			object.getPosition().add(new Vector3(drag.x, drag.y, 0));
-
-			this.#dragPosition.set(this.#mouse);
+		if (this.#scene.getClosestPointResponse() !== null) {
+			this.#renderClosestPointResponse(this.#scene.getClosestPointResponse());
 		}
-	}
 
-	onMouseUp() {
-		this.#dragPosition.reset();
-		this.#draggedObjectIndex = null;
-	}
+		if (this.#scene.getMinkowskiDifference() !== null) {
+			this.#renderMinkowskiDifference(this.#scene.getMinkowskiDifference());
+		}
 
-	/**
-	 * @param {Vector2} viewport
-	 */
-	onResize(viewport) {
-		this.#viewport.set(viewport);
-
-		this.#resized = false;
-	}
-
-	/**
-	 * @param {Number} direction
-	 */
-	onScroll(direction) {
-		this.#zoomLevel = clamp(this.#zoomLevel + direction, Renderer.#MIN_ZOOM_LEVEL, Renderer.#MAX_ZOOM_LEVEL);
-
-		this.#transformed = false;
+		this.#renderDebug();
 	}
 
 	#clear() {
-		const v = this.#viewport;
+		const w = this.#view.viewport.x;
+		const h = this.#view.viewport.y;
 
 		this.#context.fillStyle = Renderer.#BACKGROUND_COLOR;
-		this.#context.fillRect(-v.x * 0.5, -v.y * 0.5, v.x, v.y);
+		this.#context.fillRect(-w * 0.5, -h * 0.5, w, h);
 	}
 
 	#renderGrid() {
-		const v = this.#viewport;
+		const w = this.#view.viewport.x;
+		const h = this.#view.viewport.y;
 
 		this.#context.strokeStyle = Renderer.#GRID_COLOR;
 		this.#context.beginPath();
 
 		// Draw columns.
-		for (let x = Renderer.#GRID_COLUMN_GAP; x < v.x * 0.5; x += Renderer.#GRID_COLUMN_GAP) {
-			this.#context.moveTo(-x, -v.y * 0.5);
-			this.#context.lineTo(-x, v.y * 0.5);
-			this.#context.moveTo(x, -v.y * 0.5);
-			this.#context.lineTo(x, v.y * 0.5);
+		for (let x = Renderer.#GRID_COLUMN_GAP; x < w * 0.5; x += Renderer.#GRID_COLUMN_GAP) {
+			this.#context.moveTo(-x, -h * 0.5);
+			this.#context.lineTo(-x, h * 0.5);
+			this.#context.moveTo(x, -h * 0.5);
+			this.#context.lineTo(x, h * 0.5);
 		}
 
 		// Draw rows.
-		for (let y = Renderer.#GRID_ROW_GAP; y < v.y * 0.5; y += Renderer.#GRID_ROW_GAP) {
-			this.#context.moveTo(-v.x * 0.5, -y);
-			this.#context.lineTo(v.x * 0.5, -y);
-			this.#context.moveTo(-v.x * 0.5, y);
-			this.#context.lineTo(v.x * 0.5, y);
+		for (let y = Renderer.#GRID_ROW_GAP; y < h * 0.5; y += Renderer.#GRID_ROW_GAP) {
+			this.#context.moveTo(-w * 0.5, -y);
+			this.#context.lineTo(w * 0.5, -y);
+			this.#context.moveTo(-w * 0.5, y);
+			this.#context.lineTo(w * 0.5, y);
 		}
 
 		this.#context.stroke();
 	}
 
 	#renderAxes() {
-		const v = this.#viewport;
+		const w = this.#view.viewport.x;
+		const h = this.#view.viewport.y;
 
 		this.#context.strokeStyle = Renderer.#AXIS_COLOR;
 		this.#context.beginPath();
 
 		// Draw horizontal axis.
-		this.#context.moveTo(-v.x * 0.5, 0);
-		this.#context.lineTo(v.x * 0.5, 0);
+		this.#context.moveTo(-w * 0.5, 0);
+		this.#context.lineTo(w * 0.5, 0);
 
 		// Draw vertical axis.
-		this.#context.moveTo(0, -v.y * 0.5);
-		this.#context.lineTo(0, v.y * 0.5);
+		this.#context.moveTo(0, -h * 0.5);
+		this.#context.lineTo(0, h * 0.5);
 
 		this.#context.stroke();
 	}
@@ -242,7 +169,6 @@ export class Renderer {
 
 		this.#context.save();
 		this.#context.beginPath();
-
 		this.#context.translate(p.x, p.y);
 		this.#context.moveTo(v0.x, v0.y);
 
@@ -254,10 +180,11 @@ export class Renderer {
 
 		this.#context.lineTo(v0.x, v0.y);
 
-		const mouse = new Vector2(this.#mouse).multiplyMatrix(this.#transform);
+		const mouse = new Vector2(this.#view.mouse).multiplyMatrix(this.#view.projection);
 		const isHovering = this.#context.isPointInPath(mouse.x, mouse.y);
 
-		if (isHovering) {
+		// TODO: Move into Application
+		/* if (isHovering) {
 			this.#hoveredObjectIndex = index;
 
 			this.#context.fillStyle = Renderer.#HOVER_FILL_COLOR;
@@ -270,12 +197,113 @@ export class Renderer {
 
 			this.#context.fillStyle = object.getMaterial().getFillColor();
 			this.#context.strokeStyle = object.getMaterial().getStrokeColor();
-		}
+		} */
+		this.#context.fillStyle = object.getMaterial().getFillColor();
+		this.#context.strokeStyle = object.getMaterial().getStrokeColor();
 
 		this.#context.fill();
 		this.#context.stroke();
+		this.#context.restore();
+	}
+
+	/**
+	 * @param {import("../public/GJK.js").GJKResponse} gjkResponse
+	 */
+	#renderGJKResponse(gjkResponse) {
+		if (gjkResponse.simplex.length >= 2) {
+			this.#context.fillStyle = "orange";
+
+			for (let i = 0; i < gjkResponse.simplex.length; i++) {
+				const p = gjkResponse.simplex[i];
+
+				this.#context.beginPath();
+				this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
+				this.#context.fill();
+			}
+		}
+
+		if (gjkResponse.distance) {
+			this.#context.strokeStyle = "orange";
+			this.#context.beginPath();
+			this.#context.moveTo(0, 0);
+			this.#context.lineTo(gjkResponse.distance, 0);
+			this.#context.stroke();
+		}
+	}
+
+	/**
+	 * @param {import("../public/Distance.js").ClosestPointResponse} response
+	 */
+	#renderClosestPointResponse(response) {
+		this.#context.save();
+
+		const q = response.input;
+
+		// Draw query point.
+		this.#context.fillStyle = "#ff746c";
+		this.#context.beginPath();
+		this.#context.arc(q.x, q.y, 0.1, 0, pi * 2);
+		this.#context.fill();
+
+		// Draw projected point.
+		if (response.closest) {
+			const P = response.closest;
+
+			this.#context.fillStyle = "#ffee8c";
+			this.#context.beginPath();
+			this.#context.arc(P.x, P.y, 0.1, 0, pi * 2);
+			this.#context.fill();
+		}
+
+		if (response.simplex) {
+			const simplex = response.simplex;
+			const p0 = simplex[0];
+
+			this.#context.fillStyle = `${Renderer.#POLYTOPE_COLOR}20`;
+			this.#context.strokeStyle = `${Renderer.#POLYTOPE_COLOR}50`;
+			this.#context.beginPath();
+			this.#context.moveTo(p0.x, p0.y);
+
+			for (let i = 1; i < simplex.length; i++) {
+				const p = simplex[i];
+
+				this.#context.lineTo(p.x, p.y);
+			}
+
+			this.#context.lineTo(p0.x, p0.y);
+			this.#context.fill();
+			this.#context.stroke();
+		}
+
+		if (response.uncontributingVertexIndices.length !== 0) {
+			this.#context.fillStyle = Renderer.#HOVER_STROKE_COLOR;
+
+			for (let i = 0; i < response.uncontributingVertexIndices.length; i++) {
+				const index = response.uncontributingVertexIndices[i];
+				const p = response.geometry[index];
+
+				this.#context.beginPath();
+				this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
+				this.#context.fill();
+			}
+		}
 
 		this.#context.restore();
+	}
+
+	/**
+	 * @param {import("../public/MinkowskiDifference.js").MinkowskiDifference} minkowskiDifference
+	 */
+	#renderMinkowskiDifference(minkowskiDifference) {
+		this.#context.fillStyle = "#fff";
+
+		for (let i = 0; i < minkowskiDifference.length; i++) {
+			const p = minkowskiDifference[i];
+
+			this.#context.beginPath();
+			this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
+			this.#context.fill();
+		}
 	}
 
 	#renderDebug() {
@@ -285,36 +313,32 @@ export class Renderer {
 	#renderDebugTooltip() {
 		this.#context.fillStyle = Renderer.#DEBUG_TOOLTIP_BACKGROUND_COLOR;
 
-		const tooltipX = (this.#mouse.x); // + Renderer.#DEBUG_TOOLTIP_MARGIN.x) / this.#zoomLevel;
-		const tooltipY = (this.#mouse.y); // - Renderer.#DEBUG_TOOLTIP_MARGIN.y) / this.#zoomLevel;
+		const tooltipX = (this.#view.mouse.x); // + Renderer.#DEBUG_TOOLTIP_MARGIN.x) / this.#zoomLevel;
+		const tooltipY = (this.#view.mouse.y); // - Renderer.#DEBUG_TOOLTIP_MARGIN.y) / this.#zoomLevel;
 
-		const flipX = Number(tooltipX + this.#debugTooltipSize.x <= this.#viewport.x * 0.5) * 2 - 1;
-		const flipY = Number(tooltipY - this.#debugTooltipSize.y <= -this.#viewport.y * 0.5) * 2 - 1;
+		const flipX = Number(tooltipX + this.#debugTooltipSize.x <= this.#view.viewport.x * 0.5) * 2 - 1;
+		const flipY = Number(tooltipY - this.#debugTooltipSize.y <= -this.#view.viewport.y * 0.5) * 2 - 1;
 
-		this.#context.fillRect(tooltipX, tooltipY, this.#debugTooltipSize.x * flipX / this.#zoomLevel, this.#debugTooltipSize.y * flipY / this.#zoomLevel);
+		this.#context.fillRect(tooltipX, tooltipY, this.#debugTooltipSize.x * flipX / this.#view.zoomLevel, this.#debugTooltipSize.y * flipY / this.#view.zoomLevel);
+
+		this.#context.save();
+		this.#context.font = "0.25px Arial";
+		this.#context.fillStyle = "#fff";
+		this.#context.scale(1, -1);
+		this.#context.fillText(`${this.#view.mouse}`, tooltipX, -tooltipY + 0.35);
+		this.#context.restore();
 	}
 
-	#resize() {
-		this.#canvas.width = this.#viewport.x;
-		this.#canvas.height = this.#viewport.y;
+	/**
+	 * @param {import("./Application.js").View} view
+	 */
+	setView(view) {
+		this.#view = view;
 
-		this.#updateTransform();
+		this.#canvas.width = this.#view.viewport.x;
+		this.#canvas.height = this.#view.viewport.y;
 
-		this.#resized = true;
-	}
-
-	#updateTransform() {
-		const translationBias = new Vector2(1 - this.#viewport.x % 2, 1 - this.#viewport.y % 2);
-
-		this.#transform.set(Matrix3.identity());
-		this.#transform.multiply(Matrix3.translation(new Vector2(this.#viewport).add(translationBias).multiplyScalar(0.5)));
-		this.#transform.multiply(Matrix3.scale(new Vector2(1, -1).multiplyScalar(this.#zoomLevel)));
-
-		this.#transformInverse = inverse(this.#transform);
-
-		this.#context.setTransform(this.#transform[0], 0, 0, this.#transform[4], this.#transform[6], this.#transform[7]);
-		this.#context.lineWidth = 1 / this.#zoomLevel;
-
-		this.#transformed = true;
+		this.#context.setTransform(this.#view.projection[0], 0, 0, this.#view.projection[4], this.#view.projection[6], this.#view.projection[7]);
+		this.#context.lineWidth = 1 / this.#view.zoomLevel;
 	}
 }

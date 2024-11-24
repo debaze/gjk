@@ -46,7 +46,7 @@
 } */
 
 /**
- * @param {import("../src/Object/index.js").Object} object
+ * @param {import("../src/index.js").Object} object
  * @param {Boolean} intersecting
  */
 /* renderObject__old(object, intersecting) {
@@ -73,7 +73,7 @@
 } */
 
 /**
- * @param {import("../src/Object/index.js").Object} object
+ * @param {import("../src/index.js").Object} object
  */
 /* renderCenterOfMass(object) {
 	const O = this.#origin;
@@ -90,9 +90,9 @@
 /**
  * Renders the edge of each object involved in the collision.
  * 
- * @param {import("../src/Object/index.js").Object} object1
- * @param {import("../src/Object/index.js").Object} object2
- * @param {import("../public/epa.js").Collision} collision
+ * @param {import("../src/index.js").Object} object1
+ * @param {import("../src/index.js").Object} object2
+ * @param {import("./EPA.js").Collision} collision
  */
 /* renderClosestEdges(object1, object2, collision) {
 	const v = this.#viewport;
@@ -159,7 +159,7 @@
 } */
 
 /**
- * @param {Vector3[]} polytope
+ * @param {import("../src/math/index.js").Vector3[]} polytope
  */
 /* renderPolytope(polytope) {
 	const O = this.#origin;
@@ -197,7 +197,7 @@
 } */
 
 /**
- * @param {import("../public/epa.js").Collision} collision
+ * @param {import("./EPA.js").Collision} collision
  */
 /* renderCollisionNormal(collision) {
 	const O = this.#origin;
@@ -216,7 +216,7 @@
 } */
 
 /**
- * @param {Record.<String, *>} objects
+ * @param {Record<String, any>} objects
  */
 /* renderDebug(objects) {
 	const objectEntries = Object.entries(objects);
@@ -241,7 +241,7 @@
 } */
 
 /**
- * @param {import("../src/Object/index.js").Object} object
+ * @param {import("../src/index.js").Object} object
  */
 /* #renderSupport(object) {
 	const O = this.#origin;

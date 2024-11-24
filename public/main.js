@@ -1,5 +1,5 @@
 import {Application, Geometry, Material, Object, Scene} from "../src/index.js";
-import {Vector3} from "../src/math/index.js";
+import {Vector2} from "../src/math/index.js";
 
 const application = new Application();
 
@@ -8,40 +8,65 @@ document.body.appendChild(application.getRenderer().getCanvas());
 await application.initialize();
 
 const scene = new Scene([
-	new Object(
-		new Vector3(-155, 32.5, 0),
+	// Point
+	/* new Object(
+		new Vector2(0, 0),
 		new Geometry([
-			new Vector3(-60, 0, 0),
-			new Vector3(0, 100, 0),
-			new Vector3(60, 0, 0),
-			new Vector3(70, -30, 0),
+			new Vector2(1, 1),
 		]),
 		new Material({
 			fillColor: "#ffee8c20",
 			strokeColor: "#ffee8c50",
 		}),
-	),
-	new Object(
-		new Vector3(-50, 130, 0),
+	), */
+	// Line
+	/* new Object(
+		new Vector2(0, 0),
 		new Geometry([
-			new Vector3(-30, 0, 0),
-			new Vector3(0, 30, 0),
-			new Vector3(30, 40, 0),
-			new Vector3(60, 25, 0),
-			new Vector3(80, 10, 0),
+			new Vector2(-2, -1),
+			new Vector2(3, 2),
 		]),
 		new Material({
 			fillColor: "#ffee8c20",
 			strokeColor: "#ffee8c50",
 		}),
-	),
-	new Object(
-		new Vector3(0, 0, 0),
+	), */
+	// Triangle
+	/* new Object(
+		new Vector2(0, 0),
 		new Geometry([
-			new Vector3(0, 0, 0),
-			new Vector3(0, 48, 0),
-			new Vector3(32, 48, 0),
-			new Vector3(32, 0, 0),
+			new Vector2(-4, -1),
+			new Vector2(-1, 5),
+			new Vector2(3, 1),
+		]),
+		new Material({
+			fillColor: "#ffee8c20",
+			strokeColor: "#ffee8c50",
+		}),
+	), */
+	// Polygon 1
+	/* new Object(
+		new Vector2(0, 0),
+		new Geometry([
+			new Vector2(-2, 2),
+			new Vector2(2, 2),
+			new Vector2(2, -2),
+			new Vector2(-2, -2),
+		]),
+		new Material({
+			fillColor: "#ffee8c20",
+			strokeColor: "#ffee8c50",
+		}),
+	), */
+	// Polygon 2
+	new Object(
+		new Vector2(0, 0),
+		new Geometry([
+			new Vector2(3, 2),
+			new Vector2(0, 5),
+			new Vector2(-2.5, 3.5),
+			new Vector2(-3.5, -1.5),
+			new Vector2(1.5, -2),
 		]),
 		new Material({
 			fillColor: "#ffee8c20",
@@ -49,6 +74,8 @@ const scene = new Scene([
 		}),
 	),
 ]);
+
+scene.setMarkedObject1Index(0);
 
 application.setScene(scene);
 application.startLoop();

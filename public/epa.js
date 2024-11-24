@@ -1,6 +1,6 @@
 import {PolygonWinding} from "../src/index.js";
 import {closestEdge} from "./closestEdge.js";
-import {support} from "./support.js";
+import {support} from "./minkowskiSupport.js";
 
 /**
  * @typedef {Object} Collision
