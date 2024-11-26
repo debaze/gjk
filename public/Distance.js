@@ -46,23 +46,23 @@ const POLYGON_POLYGON_MAX_ITERATIONS = 8;
 let maxRecordedIterations = 0;
 
 /**
- * @param {import("../src/index.js").Object} polygon1
- * @param {import("../src/index.js").Object} polygon2
+ * @param {import("../src/index.js").Object} M1
+ * @param {import("../src/index.js").Object} M2
  */
-export function ClosestPointPolygonPolygon(polygon1, polygon2) {
+export function ClosestPointPolygonPolygon(M1, M2) {
 	/**
 	 * @type {ClosestPointPolygonPolygonResponse}
 	 */
 	const response = {};
 
 	// 1. Pick arbitrary initial simplex S on T.
-	const D = new Vector2(polygon2.getGeometry().getCenterOfMass()).subtract(polygon1.getGeometry().getCenterOfMass());
-	const a = MînkowskiDifference.support(polygon1, polygon2, D);
+	const D = new Vector2(M2.getGeometry().getCenterOfMass()).subtract(M1.getGeometry().getCenterOfMass());
+	const a = MînkowskiDifference.support(M1, M2, D);
 
 	const S = [a];
 
-	response.object1 = polygon1;
-	response.object2 = polygon2;
+	response.object1 = M1;
+	response.object2 = M2;
 	response.simplex = S;
 
 	let i = 0;
@@ -92,7 +92,7 @@ export function ClosestPointPolygonPolygon(polygon1, polygon2) {
 		}
 
 		// 2.d. Compute the support point P2 in direction of D.
-		const P2 = MînkowskiDifference.support(polygon1, polygon2, D);
+		const P2 = MînkowskiDifference.support(M1, M2, D);
 
 		// Termination case 1: repeated support point
 		// Check for duplicate support points. This is the main termination criteria.
@@ -120,13 +120,11 @@ export function ClosestPointPolygonPolygon(polygon1, polygon2) {
 }
 
 /**
- * Inputs: Triangle ABC
- * 
  * 1. Compute edge barycentric coordinates uAB, vAB, uBC, vBC, uCA, vCA.
- * 2. Test vertex regions. If found, return.
- * 3. Compute triangle barycentric coordinates uABC, vABC, wABC.
- * 4. Test edge regions. If found, return.
- * 5. Else, return interior region.
+ * 2. Test vertex regions.
+ * 3. If not in a vertex region, compute triangle barycentric coordinates uABC, vABC, wABC.
+ * 4. Test edge regions.
+ * 5. If not in an edge region, return interior region.
  * 
  * @param {Simplex} simplex
  */
@@ -147,8 +145,8 @@ export function ClosestPointTriangle(simplex) {
 
 		ABnorm.normalize();
 
-		uAB = new Vector2(A.vertex).negate().dot(ABnorm) / ABlen;
 		vAB = B.vertex.dot(ABnorm) / ABlen;
+		uAB = 1 - vAB;
 	}
 
 	// Calculate BC barycentric coordinates.
@@ -158,8 +156,8 @@ export function ClosestPointTriangle(simplex) {
 
 		BCnorm.normalize();
 
-		uBC = new Vector2(B.vertex).negate().dot(BCnorm) / BClen;
 		vBC = C.vertex.dot(BCnorm) / BClen;
+		uBC = 1 - vBC;
 	}
 
 	// Calculate CA barycentric coordinates.
@@ -169,8 +167,8 @@ export function ClosestPointTriangle(simplex) {
 
 		CAnorm.normalize();
 
-		uCA = new Vector2(C.vertex).negate().dot(CAnorm) / CAlen;
 		vCA = A.vertex.dot(CAnorm) / CAlen;
+		uCA = 1 - vCA;
 	}
 
 	// Test region A.
@@ -247,7 +245,6 @@ export function ClosestPointTriangle(simplex) {
 	simplex[0].u = uABC;
 	simplex[1].u = vABC;
 	simplex[2].u = wABC;
-	simplex.length = 3;
 }
 
 /**
@@ -283,7 +280,6 @@ export function ClosestPointLine(simplex) {
 
 	simplex[0].u = 1 - u;
 	simplex[1].u = 1 - v;
-	simplex.length = 2;
 }
 
 /**
@@ -319,8 +315,6 @@ function closestPoint(simplex) {
 }
 
 /**
- * Minkowski variant - Q is the origin
- * 
  * @param {SimplexVertex[]} simplex
  */
 function getSearchDirection(simplex) {
