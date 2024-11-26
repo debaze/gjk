@@ -1,7 +1,5 @@
-import {ClosestPointLine, ClosestPointPoint, ClosestPointPolygon, ClosestPointTriangle} from "../public/Distance.js";
-import {GetMinkowskiDifference} from "../public/MinkowskiDifference.js";
 import {Scene} from "./index.js";
-import {Vector2} from "./math/Vector2.js";
+import {ClosestPointPolygonPolygon} from "../public/Distance.js";
 
 export class Integrator {
 	/**
@@ -19,11 +17,15 @@ export class Integrator {
 		const markedObject1 = objects[scene.getMarkedObject1Index()];
 		const markedObject2 = objects[scene.getMarkedObject2Index()];
 
-		const closestPointResponse = ClosestPointPolygon(markedObject1, this.#view.mouse);
-		// const minkowskiDifference = GetMinkowskiDifference(markedObject1, markedObject2);
+		// markedObject1.rotation += 0.005;
+		// markedObject1.updateTransform();
+
+		markedObject2.position.set(this.#view.mouse);
+		markedObject2.updateTransform();
+
+		const closestPointResponse = ClosestPointPolygonPolygon(markedObject1, markedObject2);
 
 		scene.setClosestPointResponse(closestPointResponse);
-		// scene.setMinkowskiDifference(minkowskiDifference);
 	}
 
 	/**

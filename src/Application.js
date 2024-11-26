@@ -178,7 +178,8 @@ export class Application {
 			const object = this.#scene.getObjects()[this.#draggedObjectIndex];
 			const drag = new Vector2(this.#mouse).subtract(this.#dragPosition);
 
-			object.getPosition().add(new Vector3(drag.x, drag.y, 0));
+			object.position.add(new Vector3(drag.x, drag.y, 0));
+			object.updateTransform();
 
 			this.#dragPosition.set(this.#mouse);
 		}

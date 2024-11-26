@@ -1,133 +1,126 @@
+import {MînkowskiDifference} from "./MinkowskiDifference.js";
 import {cross, dot, length, Vector2} from "../src/math/index.js";
 
 /**
  * @typedef {Object} ClosestPointResponse
- * @property {import("../src/math/index.js").Vector2[]} geometry Input geometry
+ * @property {import("../src/math/index.js").Vector2[]} geometry Input geometry (visualization purposes)
  * @property {import("../src/math/index.js").Vector2} input Query point
- * @property {import("../src/math/index.js").Vector2} closest Closest point projected on the shape
+ * @property {import("../src/math/index.js").Vector2} closest Closest point on the shape
  * @property {Number} distance Distance between the closest point the and query point
  * @property {import("../src/math/index.js").Vector2[]} [simplex] Visualization purposes
- * @property {Number[]} uncontributingVertexIndices Indices of the vertices on the input simplex that do not contribute to the response.
+ * @property {Number[]} uncontributingVertexIndices Indices of the vertices on the input simplex that do not contribute to the response
  */
 
 /**
- * @typedef {Object} SupportResponse
+ * @typedef {Object} ClosestPointPolygonPolygonResponse
+ * @property {import("../src/index.js").Object} object1
+ * @property {import("../src/index.js").Object} object2
+ * @property {import("../src/math/index.js").Vector2} closest1 Closest point on the shape 1
+ * @property {import("../src/math/index.js").Vector2} closest2 Closest point on the shape 2
+ * @property {SimplexVertex[]} [simplex] Visualization purposes
+ */
+
+/**
+ * @typedef {Object} Support
  * @property {Number} index
- * @property {import("../src/math/index.js").Vector2} vertex Transformed vertex
+ * @property {import("../src/math/index.js").Vector2} vertex (Already transformed)
  */
 
 /**
- * @typedef {Object} RegionTestResponse
- * @property {import("../src/math/index.js").Vector2} closestVertex
- * @property {Number[]} uncontributingVertexIndices
+ * @typedef {Object} SimplexVertex
+ * @property {import("../src/math/index.js").Vector2} vertex vertex1 - vertex2
+ * @property {import("../src/math/index.js").Vector2} vertex1 Transformed support point on shape 1
+ * @property {import("../src/math/index.js").Vector2} vertex2 Transformed support point on shape 2
+ * @property {Number} index1 Index on shape 1
+ * @property {Number} index2 Index on shape 2
+ * @property {Number} u Closest point barycentric coordinate
  */
 
-const MAX_ITERATIONS = 8;
+/**
+ * @typedef {SimplexVertex[]} Simplex
+ */
 
-// Max recorded = 3
+const POLYGON_POLYGON_MAX_ITERATIONS = 8;
+
+// Max recorded = 4
 let maxRecordedIterations = 0;
 
 /**
- * Inputs: Polygon T, Query point Q
- * 
- * 1. Pick arbitrary initial simplex S on T.
- * 2. Loop:
- *        a. Compute the closest point P on S.
- *        b. Remove non-contributing vertices from S.
- *        c. Calculate direction vector D pointing from P to Q.
- *        d. Compute the support point P2 in direction of D.
- *        e. Add P2 to S.
- * 
- * @param {import("../src/index.js").Object} polygon
- * @param {import("../src/math/index.js").Vector2} input
+ * @param {import("../src/index.js").Object} polygon1
+ * @param {import("../src/index.js").Object} polygon2
  */
-export function ClosestPointPolygon(polygon, input) {
+export function ClosestPointPolygonPolygon(polygon1, polygon2) {
 	/**
-	 * @type {ClosestPointResponse}
+	 * @type {ClosestPointPolygonPolygonResponse}
 	 */
 	const response = {};
 
-	response.input = input;
-	response.geometry = polygon.getGeometry().getVertices();
-
-	const Q = input;
-
 	// 1. Pick arbitrary initial simplex S on T.
-	const D = new Vector2(1, 0);
-	const a = support(polygon, D).vertex;
+	const D = new Vector2(polygon2.getGeometry().getCenterOfMass()).subtract(polygon1.getGeometry().getCenterOfMass());
+	const a = MînkowskiDifference.support(polygon1, polygon2, D);
 
 	const S = [a];
 
+	response.object1 = polygon1;
+	response.object2 = polygon2;
 	response.simplex = S;
-	response.uncontributingVertexIndices = [];
 
-	let closestPoint;
-	let closestDistance = Number.POSITIVE_INFINITY;
 	let i = 0;
 
-	for (; i <= MAX_ITERATIONS; i++) {
+	loop: for (; i <= POLYGON_POLYGON_MAX_ITERATIONS; i++) {
+		// Copy simplex for duplicate searching
+		const SCopy = [...S];
+
 		// 2.a. Compute the closest point P on S.
-		const P = getClosestPoint(S, Q);
-
-		if (P.distance >= closestDistance) {
-			// Distance should have decreased, not increased or stayed the same.
-			// In this case the last vertex added to S could be not contributing, which can't be possible.
-			break;
-		}
-
-		closestPoint = P.closest;
-		closestDistance = P.distance;
+		closestPoint(S);
 
 		// Termination case 2: containment
-		if (S.length === 3 && P.uncontributingVertexIndices.length === 0) {
-			// Q is inside the simplex
+		// If we have 3 points, then the origin is in the corresponding triangle.
+		if (S.length === 3) {
 			break;
-		}
-
-		// 2.b. Cull non-contributing vertices from S.
-		// Uncontributing vertex indices MUST BE IN ASCENDING ORDER
-		for (let i = P.uncontributingVertexIndices.length - 1; i >= 0; i--) {
-			const index = P.uncontributingVertexIndices[i];
-
-			S.splice(index, 1);
 		}
 
 		// 2.c. Calculate direction vector D pointing from P to Q.
-		D.set(getSearchDirection(S, Q, P.closest));
+		D.set(getSearchDirection(S));
 
 		// Termination case 3a: vertex overlap
+		// Ensure the search direction non-zero.
 		if (D.x === 0 && D.y === 0) {
-			console.warn("D is zero.");
+			console.warn("Vertex overlap: D = (0, 0).");
 
 			break;
 		}
 
 		// 2.d. Compute the support point P2 in direction of D.
-		const P2 = support(polygon, D);
+		const P2 = MînkowskiDifference.support(polygon1, polygon2, D);
 
 		// Termination case 1: repeated support point
-		if (simplexContains(S, P2.vertex)) {
-			break;
+		// Check for duplicate support points. This is the main termination criteria.
+		for (let i = 0; i < SCopy.length; i++) {
+			// If we found a duplicate support point we must exit to avoid cycling.
+			if (P2.index1 === SCopy[i].index1 && P2.index2 === SCopy[i].index2) {
+				break loop;
+			}
 		}
 
 		// 2.e. Add P2 to S.
-		S.push(P2.vertex);
+		S.push(P2);
 	}
 
-	response.closest = closestPoint;
-	response.distance = closestDistance;
+	getClosestPointsOnPolygons(response, S);
+	// response.closest1 = closestPoint;
 
 	if (i > maxRecordedIterations) {
 		maxRecordedIterations = i;
 
-		console.warn("Max recorded iteration count:", maxRecordedIterations);
+		console.warn("(Polygon-Polygon) Max recorded iteration count:", maxRecordedIterations);
 	}
 
 	return response;
 }
 
 /**
- * Inputs: Triangle ABC, Input point Q
+ * Inputs: Triangle ABC
  * 
  * 1. Compute edge barycentric coordinates uAB, vAB, uBC, vBC, uCA, vCA.
  * 2. Test vertex regions. If found, return.
@@ -135,23 +128,13 @@ export function ClosestPointPolygon(polygon, input) {
  * 4. Test edge regions. If found, return.
  * 5. Else, return interior region.
  * 
- * @param {import("../src/math/index.js").Vector2[]} simplex
- * @param {import("../src/math/index.js").Vector2} input
+ * @param {Simplex} simplex
  */
-export function ClosestPointTriangle(simplex, input) {
-	/**
-	 * @type {ClosestPointResponse}
-	 */
-	const response = {};
-
-	response.input = input;
-
+export function ClosestPointTriangle(simplex) {
 	const A = simplex[0];
 	const B = simplex[1];
 	const C = simplex[2];
-	const Q = input;
-
-	response.geometry = simplex;
+	const Q = new Vector2(0, 0);
 
 	let uAB, vAB;
 	let uBC, vBC;
@@ -159,156 +142,148 @@ export function ClosestPointTriangle(simplex, input) {
 
 	// Calculate AB barycentric coordinates.
 	{
-		const ABnorm = new Vector2(B).subtract(A);
+		const ABnorm = new Vector2(B.vertex).subtract(A.vertex);
 		const ABlen = length(ABnorm);
 
 		ABnorm.normalize();
 
-		uAB = new Vector2(Q).subtract(A).dot(ABnorm) / ABlen;
-		vAB = new Vector2(B).subtract(Q).dot(ABnorm) / ABlen;
+		uAB = new Vector2(A.vertex).negate().dot(ABnorm) / ABlen;
+		vAB = B.vertex.dot(ABnorm) / ABlen;
 	}
 
 	// Calculate BC barycentric coordinates.
 	{
-		const BCnorm = new Vector2(C).subtract(B);
+		const BCnorm = new Vector2(C.vertex).subtract(B.vertex);
 		const BClen = length(BCnorm);
 
 		BCnorm.normalize();
 
-		uBC = new Vector2(Q).subtract(B).dot(BCnorm) / BClen;
-		vBC = new Vector2(C).subtract(Q).dot(BCnorm) / BClen;
+		uBC = new Vector2(B.vertex).negate().dot(BCnorm) / BClen;
+		vBC = C.vertex.dot(BCnorm) / BClen;
 	}
 
 	// Calculate CA barycentric coordinates.
 	{
-		const CAnorm = new Vector2(A).subtract(C);
+		const CAnorm = new Vector2(A.vertex).subtract(C.vertex);
 		const CAlen = length(CAnorm);
 
 		CAnorm.normalize();
 
-		uCA = new Vector2(Q).subtract(C).dot(CAnorm) / CAlen;
-		vCA = new Vector2(A).subtract(Q).dot(CAnorm) / CAlen;
+		uCA = new Vector2(C.vertex).negate().dot(CAnorm) / CAlen;
+		vCA = A.vertex.dot(CAnorm) / CAlen;
 	}
 
-	const P = new Vector2(0, 0);
+	// Test region A.
+	if (uCA > 1 && uAB <= 0) {
+		A.u = 1;
+		simplex[0] = A;
+		simplex.length = 1;
 
-	response.closest = P;
+		return;
+	}
 
-	// 1. Test vertex regions
-	let regionResponse = testVertexRegions(A, B, C, uAB, vAB, uBC, vBC, uCA, vCA);
+	// Test region B.
+	if (uAB > 1 && uBC <= 0) {
+		B.u = 1;
+		simplex[0] = B;
+		simplex.length = 1;
 
-	if (regionResponse !== null) {
-		P.set(regionResponse.closestVertex);
+		return;
+	}
 
-		response.distance = new Vector2(response.input).subtract(P).magnitude();
-		response.uncontributingVertexIndices = regionResponse.uncontributingVertexIndices;
+	// Test region C.
+	if (uBC > 1 && uCA <= 0) {
+		C.u = 1;
+		simplex[0] = C;
+		simplex.length = 1;
 
-		return response;
+		return;
 	}
 
 	let uABC, vABC, wABC;
 
 	// Calculate ABC barycentric coordinates.
 	{
-		const abc = area(A, B, C);
+		const abc = area(A.vertex, B.vertex, C.vertex);
 
-		uABC = area(Q, B, C) / abc;
-		vABC = area(A, Q, C) / abc;
-		wABC = area(A, B, Q) / abc;
+		uABC = area(Q,        B.vertex, C.vertex) / abc;
+		vABC = area(A.vertex, Q,        C.vertex) / abc;
+		wABC = area(A.vertex, B.vertex, Q       ) / abc;
 	}
 
-	// 2. Test edge regions
-	regionResponse = testEdgeRegions(A, B, C, uAB, vAB, uBC, vBC, uCA, vCA, uABC, vABC, wABC);
+	// Test region AB.
+	if (uAB >= 0 && vAB >= 0 && wABC <= 0) {
+		A.u = vAB;
+		B.u = uAB;
+		simplex[0] = A;
+		simplex[1] = B;
+		simplex.length = 2;
 
-	if (regionResponse !== null) {
-		P.set(regionResponse.closestVertex);
-
-		response.distance = new Vector2(response.input).subtract(P).magnitude();
-		response.uncontributingVertexIndices = regionResponse.uncontributingVertexIndices;
-
-		return response;
+		return;
 	}
 
-	// 3. Interior region
-	P.set(Q);
+	// Test region BC.
+	if (uBC >= 0 && vBC >= 0 && uABC <= 0) {
+		B.u = vBC;
+		C.u = uBC;
+		simplex[0] = B;
+		simplex[1] = C;
+		simplex.length = 2;
 
-	response.distance = new Vector2(response.input).subtract(P).magnitude();
-	response.uncontributingVertexIndices = []; // All are contributing
+		return;
+	}
 
-	return response;
+	// Test region CA.
+	if (uCA >= 0 && vCA >= 0 && vABC <= 0) {
+		C.u = vCA;
+		A.u = uCA;
+		simplex[0] = C;
+		simplex[1] = A;
+		simplex.length = 2;
+
+		return;
+	}
+
+	simplex[0].u = uABC;
+	simplex[1].u = vABC;
+	simplex[2].u = wABC;
+	simplex.length = 3;
 }
 
 /**
- * @param {import("../src/math/index.js").Vector2[]} simplex
- * @param {import("../src/math/index.js").Vector2} input
+ * @param {Simplex} simplex
  */
-export function ClosestPointLine(simplex, input) {
-	/**
-	 * @type {ClosestPointResponse}
-	 */
-	const response = {};
+export function ClosestPointLine(simplex) {
+	const a = simplex[0];
+	const b = simplex[1];
+	const ab = new Vector2(b.vertex).subtract(a.vertex);
+	const length = ab.magnitude();
+	const normal = ab.normalize();
 
-	response.input = input;
-
-	const A = simplex[0];
-	const B = simplex[1];
-	const Q = input;
-
-	response.geometry = simplex;
-
-	const n = new Vector2(B).subtract(A);
-	const length = n.magnitude();
-	n.normalize();
-
-	const u = new Vector2(Q).subtract(A).dot(n) / length;
-	const v = new Vector2(B).subtract(Q).dot(n) / length;
+	const v = b.vertex.dot(normal) / length;
+	const u = 1 - v;
 
 	if (u < 0) {
-		response.closest = A;
-		response.distance = new Vector2(response.input).subtract(response.closest).magnitude();
-		response.uncontributingVertexIndices = [1]; // Index of B
+		a.u = 1;
 
-		return response;
+		simplex[0] = a;
+		simplex.length = 1;
+
+		return;
 	}
 
 	if (v < 0) {
-		response.closest = B;
-		response.distance = new Vector2(response.input).subtract(response.closest).magnitude();
-		response.uncontributingVertexIndices = [0]; // Index of A
+		b.u = 1;
 
-		return response;
+		simplex[0] = b;
+		simplex.length = 1;
+
+		return;
 	}
 
-	const a = new Vector2(A).multiplyScalar(v);
-	const b = new Vector2(B).multiplyScalar(u);
-
-	response.closest = a.add(b);
-	response.distance = new Vector2(response.input).subtract(response.closest).magnitude();
-	response.uncontributingVertexIndices = []; // Both points are contributing
-
-	return response;
-}
-
-/**
- * @param {import("../src/math/index.js").Vector2[]} simplex
- * @param {import("../src/math/index.js").Vector2} input
- */
-export function ClosestPointPoint(simplex, input) {
-	/**
-	 * @type {ClosestPointResponse}
-	 */
-	const response = {};
-
-	const closest = simplex[0];
-	const distance = new Vector2(input).subtract(closest).magnitude();
-
-	response.geometry = simplex;
-	response.input = input;
-	response.closest = closest;
-	response.distance = distance;
-	response.uncontributingVertexIndices = [];
-
-	return response;
+	simplex[0].u = 1 - u;
+	simplex[1].u = 1 - v;
+	simplex.length = 2;
 }
 
 /**
@@ -324,200 +299,74 @@ function area(a, b, c) {
 }
 
 /**
- * @param {import("../src/math/index.js").Vector2} A
- * @param {import("../src/math/index.js").Vector2} B
- * @param {import("../src/math/index.js").Vector2} C
- * @param {Number} uAB
- * @param {Number} vAB
- * @param {Number} uBC
- * @param {Number} vBC
- * @param {Number} uCA
- * @param {Number} vCA
+ * @param {Simplex} simplex
  */
-function testVertexRegions(A, B, C, uAB, vAB, uBC, vBC, uCA, vCA) {
-	/**
-	 * @type {RegionTestResponse}
-	 */
-	const response = {};
-
-	if (uCA > 1 && uAB <= 0) {
-		response.closestVertex = A;
-		response.uncontributingVertexIndices = [1, 2]; // B and C
-
-		return response;
-	}
-
-	if (uAB > 1 && uBC <= 0) {
-		response.closestVertex = B;
-		response.uncontributingVertexIndices = [0, 2]; // A and C
-
-		return response;
-	}
-
-	if (uBC > 1 && uCA <= 0) {
-		response.closestVertex = C;
-		response.uncontributingVertexIndices = [0, 1]; // A and B
-
-		return response;
-	}
-
-	// Not in any vertex region
-	return null;
-}
-
-/**
- * @param {import("../src/math/index.js").Vector2} A
- * @param {import("../src/math/index.js").Vector2} B
- * @param {import("../src/math/index.js").Vector2} C
- * @param {Number} uAB
- * @param {Number} vAB
- * @param {Number} uBC
- * @param {Number} vBC
- * @param {Number} uCA
- * @param {Number} vCA
- * @param {Number} uABC
- * @param {Number} vABC
- * @param {Number} wABC
- */
-function testEdgeRegions(A, B, C, uAB, vAB, uBC, vBC, uCA, vCA, uABC, vABC, wABC) {
-	/**
-	 * @type {RegionTestResponse}
-	 */
-	const response = {};
-
-	if (uAB >= 0 && vAB >= 0 && wABC <= 0) {
-		const a = new Vector2(A).multiplyScalar(vAB);
-		const b = new Vector2(B).multiplyScalar(uAB);
-
-		response.closestVertex = a.add(b);
-		response.uncontributingVertexIndices = [2]; // C
-
-		return response;
-	}
-
-	if (uBC >= 0 && vBC >= 0 && uABC <= 0) {
-		const b = new Vector2(B).multiplyScalar(vBC);
-		const c = new Vector2(C).multiplyScalar(uBC);
-
-		response.closestVertex = b.add(c);
-		response.uncontributingVertexIndices = [0]; // A
-
-		return response;
-	}
-
-	if (uCA >= 0 && vCA >= 0 && vABC <= 0) {
-		const c = new Vector2(C).multiplyScalar(vCA);
-		const a = new Vector2(A).multiplyScalar(uCA);
-
-		response.closestVertex = c.add(a);
-		response.uncontributingVertexIndices = [1]; // B
-
-		return response;
-	}
-
-	// Not in any edge region
-	return null;
-}
-
-/**
- * @param {import("../src/index.js").Object} polygon
- * @param {import("../src/math/index.js").Vector2} D
- */
-function support(polygon, D) {
-	/**
-	 * @type {SupportResponse}
-	 */
-	const response = {};
-
-	const vertices = polygon.getGeometry().getVertices();
-
-	response.index = 0;
-	let maxAngle = dot(vertices[response.index], D);
-
-	for (let i = response.index + 1; i < vertices.length; i++) {
-		const angle = dot(vertices[i], D);
-
-		if (angle > maxAngle) {
-			response.index = i;
-			maxAngle = angle;
-		}
-	}
-
-	response.vertex = new Vector2(vertices[response.index])//.add(polygon.getPosition());
-
-	return response;
-}
-
-/**
- * @param {import("../src/math/index.js").Vector2[]} simplex
- * @param {import("../src/math/index.js").Vector2} Q
- */
-function getClosestPoint(simplex, Q) {
+function closestPoint(simplex) {
 	switch (simplex.length) {
 		case 1:
-			return ClosestPointPoint(simplex, Q);
+			return;
 		case 2:
-			return ClosestPointLine(simplex, Q);
+			ClosestPointLine(simplex);
+
+			return;
 		case 3:
-			return ClosestPointTriangle(simplex, Q);
+			ClosestPointTriangle(simplex);
+
+			return;
 		default:
-			throw new Error("Closest point - Invalid simplex.");
+			throw new Error("Invalid simplex.");
 	}
 }
 
 /**
- * @param {import("../src/math/index.js").Vector2[]} simplex
- * @param {import("../src/math/index.js").Vector2} Q
- * @param {import("../src/math/index.js").Vector2} P
+ * Minkowski variant - Q is the origin
+ * 
+ * @param {SimplexVertex[]} simplex
  */
-function getSearchDirection(simplex, Q, P) {
+function getSearchDirection(simplex) {
 	switch (simplex.length) {
 		case 1:
-			// return new Vector2(simplex[0]).negate();
-			return new Vector2(Q).subtract(P);
+			return new Vector2(simplex[0].vertex).negate();
 		case 2: {
-			const ab = new Vector2(simplex[1]).subtract(simplex[0]);
-			const sign = cross(ab, new Vector2(simplex[0]).negate());
-			let D;
+			const ab = new Vector2(simplex[1].vertex).subtract(simplex[0].vertex);
+			const sign = cross(ab, new Vector2(simplex[0].vertex).negate());
 
 			if (sign > 0) {
-				D = new Vector2(-ab.y, ab.x);
-			}
-			else {
-				D = new Vector2(ab.y, -ab.x);
+				return new Vector2(-ab.y, ab.x);
 			}
 
-			if (dot(D, new Vector2(Q).subtract(simplex[0])) <= 0) {
-				D.negate();
-			}
-
-			return D;
+			return new Vector2(ab.y, -ab.x);
 		}
 		default:
-			throw new Error("Search direction - Invalid simplex.");
+			throw new Error("Invalid simplex.");
 	}
 }
 
 /**
- * @param {import("../src/math/index.js").Vector2[]} simplex
- * @param {import("../src/math/index.js").Vector2} q
+ * @param {ClosestPointPolygonPolygonResponse} response
+ * @param {Simplex} simplex
  */
-function simplexContains(simplex, q) {
-	for (let i = 0; i < simplex.length; i++) {
-		const p = simplex[i];
+function getClosestPointsOnPolygons(response, simplex) {
+	switch (simplex.length) {
+		case 1:
+			response.closest1 = simplex[0].vertex1;
+			response.closest2 = simplex[0].vertex2;
 
-		if (p.x === q.x && p.y === q.y) {
-			return true;
-		}
+			break;
+		case 2:
+			response.closest1 = new Vector2(simplex[0].vertex1).multiplyScalar(simplex[0].u).add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u));
+			response.closest2 = new Vector2(simplex[0].vertex2).multiplyScalar(simplex[0].u).add(new Vector2(simplex[1].vertex2).multiplyScalar(simplex[1].u));
+
+			break;
+		case 3:
+			/**
+			 * @todo Compute closest points on intersection?
+			 */
+			/* response.closest1 = new Vector2(simplex[0].vertex1).multiplyScalar(simplex[0].u)
+				.add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u))
+				.add(new Vector2(simplex[2].vertex1).multiplyScalar(simplex[2].u));
+			response.closest2 = response.closest1; */
+
+			break;
 	}
-
-	return false;
-}
-
-/**
- * If termination should occur, return true.
- * Otherwise return false.
- */
-function checkTermination() {
-	return true;
 }

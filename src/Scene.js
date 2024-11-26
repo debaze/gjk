@@ -17,14 +17,9 @@ export class Scene {
 	#gjkResponse = null;
 
 	/**
-	 * @type {?import("../public/Distance.js").ClosestPointResponse}
+	 * @type {?import("../public/Distance.js").ClosestPointPolygonPolygonResponse}
 	 */
 	#closestPointResponse = null;
-
-	/**
-	 * @type {?import("../public/MinkowskiDifference.js").MinkowskiDifference}
-	 */
-	#minkowskiDifference = null;
 
 	/**
 	 * @param {import("./index.js").Object[]} objects
@@ -75,20 +70,9 @@ export class Scene {
 	}
 
 	/**
-	 * @param {import("../public/Distance.js").ClosestPointResponse} closestPointResponse
+	 * @param {import("../public/Distance.js").ClosestPointPolygonPolygonResponse} closestPointResponse
 	 */
 	setClosestPointResponse(closestPointResponse) {
 		this.#closestPointResponse = closestPointResponse;
-	}
-
-	getMinkowskiDifference() {
-		return this.#minkowskiDifference;
-	}
-
-	/**
-	 * @param {import("../public/MinkowskiDifference.js").MinkowskiDifference} minkowskiDifference
-	 */
-	setMinkowskiDifference(minkowskiDifference) {
-		this.#minkowskiDifference = minkowskiDifference;
 	}
 }

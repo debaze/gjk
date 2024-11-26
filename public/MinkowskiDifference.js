@@ -1,26 +1,61 @@
-import {Vector3} from "../src/math/index.js";
+import {dot, Vector2} from "../src/math/index.js";
+
+export class MînkowskiDifference {
+	/**
+	 * @param {import("../src/index.js").Object} M1
+	 * @param {import("../src/index.js").Object} M2
+	 * @param {import("../src/math/index.js").Vector2} D Direction, not necessarily normalized
+	 */
+	static support(M1, M2, D) {
+		/**
+		 * @type {import("./Distance.js").SimplexVertex}
+		 */
+		const simplexVertex = {};
+
+		const s1 = support(M1, D);
+		const s2 = support(M2, new Vector2(D).negate());
+
+		simplexVertex.vertex = new Vector2(s1.vertex).subtract(s2.vertex);
+		simplexVertex.vertex1 = s1.vertex;
+		simplexVertex.vertex2 = s2.vertex;
+		simplexVertex.index1 = s1.index;
+		simplexVertex.index2 = s2.index;
+		simplexVertex.u = 1;
+
+		return simplexVertex;
+	}
+}
 
 /**
- * @typedef {Vector3[]} MinkowskiDifference
+ * @todo Matrix multiplication costly with too many vertices
+ * 
+ * @param {import("../src/index.js").Object} polygon
+ * @param {import("../src/math/index.js").Vector2} D Direction
  */
+function support(polygon, D) {
+	/**
+	 * @type {import("./Distance.js").Support}
+	 */
+	const response = {};
 
-/**
- * @param {import("../src/index.js").Object} object1
- * @param {import("../src/index.js").Object} object2
- */
-export function GetMinkowskiDifference(object1, object2) {
-	const object1Vertices = object1.getGeometry().getVertices();
-	const object2Vertices = object2.getGeometry().getVertices();
-	const differences = [];
+	const vertices = polygon.getGeometry().getVertices();
 
-	for (let i = 0; i < object2Vertices.length; i++) {
-		for (let j = 0; j < object1Vertices.length; j++) {
-			const v0 = new Vector3(object2Vertices[i]).add(object2.getPosition());
-			const v1 = new Vector3(object1Vertices[j]).add(object1.getPosition());
+	response.index = 0;
+	response.vertex = new Vector2(vertices[response.index]).multiplyMatrix(polygon.transform);
 
-			differences.push(v0.subtract(v1));
+	let maxAngle = dot(response.vertex, D);
+
+	for (let i = response.index + 1; i < vertices.length; i++) {
+		const vertex = new Vector2(vertices[i]).multiplyMatrix(polygon.transform);
+		const angle = dot(vertex, D);
+
+		if (angle > maxAngle) {
+			response.index = i;
+			response.vertex = vertex;
+
+			maxAngle = angle;
 		}
 	}
 
-	return differences;
+	return response;
 }
