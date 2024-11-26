@@ -1,5 +1,5 @@
 import {Scene} from "./index.js";
-import {ClosestPointPolygonPolygon} from "../public/Distance.js";
+import {ClosestPointPolygonPolygon} from "../public/GJK.js";
 
 export class Integrator {
 	/**

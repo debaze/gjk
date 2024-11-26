@@ -76,11 +76,7 @@ export class Renderer {
 		this.#renderGrid();
 		this.#renderAxes();
 
-		this.#renderScene()
-
-		if (this.#scene.getGJKResponse() !== null) {
-			this.#renderGJKResponse(this.#scene.getGJKResponse());
-		}
+		this.#renderScene();
 
 		if (this.#scene.getClosestPointResponse() !== null) {
 			this.#renderClosestPointResponse(this.#scene.getClosestPointResponse());
@@ -202,32 +198,7 @@ export class Renderer {
 	}
 
 	/**
-	 * @param {import("../public/GJK.js").GJKResponse} gjkResponse
-	 */
-	#renderGJKResponse(gjkResponse) {
-		if (gjkResponse.simplex.length >= 2) {
-			this.#context.fillStyle = "orange";
-
-			for (let i = 0; i < gjkResponse.simplex.length; i++) {
-				const p = gjkResponse.simplex[i];
-
-				this.#context.beginPath();
-				this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
-				this.#context.fill();
-			}
-		}
-
-		if (gjkResponse.distance) {
-			this.#context.strokeStyle = "orange";
-			this.#context.beginPath();
-			this.#context.moveTo(0, 0);
-			this.#context.lineTo(gjkResponse.distance, 0);
-			this.#context.stroke();
-		}
-	}
-
-	/**
-	 * @param {import("../public/Distance.js").ClosestPointPolygonPolygonResponse} response
+	 * @param {import("../public/GJK.js").ClosestPointPolygonPolygonResponse} response
 	 */
 	#renderClosestPointResponse(response) {
 		this.#context.save();

@@ -8,7 +8,7 @@ export class MînkowskiDifference {
 	 */
 	static support(M1, M2, D) {
 		/**
-		 * @type {import("./Distance.js").SimplexVertex}
+		 * @type {import("./GJK.js").SimplexVertex}
 		 */
 		const simplexVertex = {};
 
@@ -34,7 +34,7 @@ export class MînkowskiDifference {
  */
 function support(polygon, D) {
 	/**
-	 * @type {import("./Distance.js").Support}
+	 * @type {import("./GJK.js").Support}
 	 */
 	const response = {};
 
