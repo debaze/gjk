@@ -1,8 +1,8 @@
-import {Vector3} from "../src/math/index.js";
+import {Vector3} from "../../src/math/index.js";
 
 /**
- * @param {Vector3[]} simplex
- * @param {Vector3} D
+ * @param {import("../../src/math/index.js").Vector3[]} simplex
+ * @param {import("../../src/math/index.js").Vector3} D
  */
 export function check1dSimplex(simplex, D) {
 	const [b, a] = simplex;

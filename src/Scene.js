@@ -12,9 +12,9 @@ export class Scene {
 	#markedObject2Index = null;
 
 	/**
-	 * @type {?import("../public/GJK.js").ClosestPointPolygonPolygonResponse}
+	 * @type {?import("../public/GJK.js").GJKResponse}
 	 */
-	#closestPointResponse = null;
+	#gjkResponse = null;
 
 	/**
 	 * @param {import("./index.js").Object[]} objects
@@ -49,14 +49,14 @@ export class Scene {
 		this.#markedObject2Index = index;
 	}
 
-	getClosestPointResponse() {
-		return this.#closestPointResponse;
+	getGJKResponse() {
+		return this.#gjkResponse;
 	}
 
 	/**
-	 * @param {import("../public/GJK.js").ClosestPointPolygonPolygonResponse} closestPointResponse
+	 * @param {import("../public/GJK.js").GJKResponse} gjkResponse
 	 */
-	setClosestPointResponse(closestPointResponse) {
-		this.#closestPointResponse = closestPointResponse;
+	setGJKResponse(gjkResponse) {
+		this.#gjkResponse = gjkResponse;
 	}
 }

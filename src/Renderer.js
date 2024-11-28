@@ -78,8 +78,8 @@ export class Renderer {
 
 		this.#renderScene();
 
-		if (this.#scene.getClosestPointResponse() !== null) {
-			this.#renderClosestPointResponse(this.#scene.getClosestPointResponse());
+		if (this.#scene.getGJKResponse() !== null) {
+			this.#renderGJKResponse(this.#scene.getGJKResponse());
 		}
 
 		this.#renderDebug();
@@ -198,9 +198,9 @@ export class Renderer {
 	}
 
 	/**
-	 * @param {import("../public/GJK.js").ClosestPointPolygonPolygonResponse} response
+	 * @param {import("../public/GJK.js").GJKResponse} response
 	 */
-	#renderClosestPointResponse(response) {
+	#renderGJKResponse(response) {
 		this.#context.save();
 
 		// Draw simplex on the shapes.

@@ -35,21 +35,6 @@ const polygon1 = new Object(
 polygon1.position.add(new Vector2(4, 0));
 polygon1.updateTransform();
 
-const polygon3 = new Object(
-	new Geometry([
-		new Vector2(-2, 2),
-		new Vector2(2, 2),
-		new Vector2(2, -2),
-		new Vector2(-2, -2),
-	]),
-	new Material({
-		fillColor: "#ffee8c20",
-		strokeColor: "#ffee8c50",
-	}),
-);
-polygon3.position.set(new Vector2(-4, 0));
-polygon3.updateTransform();
-
 const polygon2 = new Object(
 	new Geometry([
 		new Vector2(3, 2),

@@ -1,30 +1,5 @@
-import {MînkowskiDifference} from "./MinkowskiDifference.js";
-import {cross, length, Vector2} from "../src/math/index.js";
-
-/**
- * @typedef {Object} ClosestPointResponse
- * @property {import("../src/math/index.js").Vector2[]} geometry Input geometry (visualization purposes)
- * @property {import("../src/math/index.js").Vector2} input Query point
- * @property {import("../src/math/index.js").Vector2} closest Closest point on the shape
- * @property {Number} distance Distance between the closest point the and query point
- * @property {import("../src/math/index.js").Vector2[]} [simplex] Visualization purposes
- * @property {Number[]} uncontributingVertexIndices Indices of the vertices on the input simplex that do not contribute to the response
- */
-
-/**
- * @typedef {Object} ClosestPointPolygonPolygonResponse
- * @property {import("../src/index.js").Object} object1
- * @property {import("../src/index.js").Object} object2
- * @property {import("../src/math/index.js").Vector2} closest1 Closest point on the shape 1
- * @property {import("../src/math/index.js").Vector2} closest2 Closest point on the shape 2
- * @property {SimplexVertex[]} [simplex] Visualization purposes
- */
-
-/**
- * @typedef {Object} Support
- * @property {Number} index
- * @property {import("../src/math/index.js").Vector2} vertex (Already transformed)
- */
+import {MinkowskiDifference} from "./MinkowskiDifference.js";
+import {cross, length, negate, Vector2} from "../src/math/index.js";
 
 /**
  * @typedef {Object} SimplexVertex
@@ -40,7 +15,16 @@ import {cross, length, Vector2} from "../src/math/index.js";
  * @typedef {SimplexVertex[]} Simplex
  */
 
-const POLYGON_POLYGON_MAX_ITERATIONS = 8;
+/**
+ * @typedef {Object} GJKResponse
+ * @property {import("../src/index.js").Object} object1
+ * @property {import("../src/index.js").Object} object2
+ * @property {import("../src/math/index.js").Vector2} closest1 Closest point on the shape 1
+ * @property {import("../src/math/index.js").Vector2} closest2 Closest point on the shape 2
+ * @property {Simplex} [simplex] Visualization purposes
+ */
+
+const GJK_MAX_ITERATIONS = 8;
 
 // Max recorded = 4
 let maxRecordedIterations = 0;
@@ -49,71 +33,67 @@ let maxRecordedIterations = 0;
  * @param {import("../src/index.js").Object} M1
  * @param {import("../src/index.js").Object} M2
  */
-export function ClosestPointPolygonPolygon(M1, M2) {
+export function GJK(M1, M2) {
 	/**
-	 * @type {ClosestPointPolygonPolygonResponse}
+	 * @type {GJKResponse}
 	 */
 	const response = {};
 
-	// 1. Pick arbitrary initial simplex S on T.
+	// D = COM(M2) - COM(M1)
 	const D = new Vector2(M2.getGeometry().getCenterOfMass()).subtract(M1.getGeometry().getCenterOfMass());
-	const a = MînkowskiDifference.support(M1, M2, D);
+	const A = MinkowskiDifference.support(M1, M2, D);
 
-	const S = [a];
-
-	response.object1 = M1;
-	response.object2 = M2;
-	response.simplex = S;
+	/**
+	 * @type {Simplex}
+	 */
+	const S = [A];
 
 	let i = 0;
 
-	loop: for (; i <= POLYGON_POLYGON_MAX_ITERATIONS; i++) {
-		// Copy simplex for duplicate searching
+	loop: for (; i <= GJK_MAX_ITERATIONS; i++) {
 		const SCopy = [...S];
 
-		// 2.a. Compute the closest point P on S.
-		closestPoint(S);
+		if (S.length === 2) {
+			ClosestPointLine(S);
+		}
+		else if (S.length === 3) {
+			ClosestPointTriangle(S);
+		}
 
-		// Termination case 2: containment
-		// If we have 3 points, then the origin is in the corresponding triangle.
 		if (S.length === 3) {
 			break;
 		}
 
-		// 2.c. Calculate direction vector D pointing from P to Q.
+		// D ~= (0, 0) - P
 		D.set(getSearchDirection(S));
 
-		// Termination case 3a: vertex overlap
-		// Ensure the search direction non-zero.
 		if (D.x === 0 && D.y === 0) {
 			console.warn("Vertex overlap: D = (0, 0).");
 
 			break;
 		}
 
-		// 2.d. Compute the support point P2 in direction of D.
-		const P2 = MînkowskiDifference.support(M1, M2, D);
+		const P = MinkowskiDifference.support(M1, M2, D);
 
-		// Termination case 1: repeated support point
-		// Check for duplicate support points. This is the main termination criteria.
 		for (let i = 0; i < SCopy.length; i++) {
-			// If we found a duplicate support point we must exit to avoid cycling.
-			if (P2.index1 === SCopy[i].index1 && P2.index2 === SCopy[i].index2) {
+			if (P.index1 === SCopy[i].index1 && P.index2 === SCopy[i].index2) {
 				break loop;
 			}
 		}
 
-		// 2.e. Add P2 to S.
-		S.push(P2);
+		S.push(P);
 	}
 
+	response.object1 = M1;
+	response.object2 = M2;
+	response.simplex = S;
+
 	getClosestPointsOnPolygons(response, S);
-	// response.closest1 = closestPoint;
 
 	if (i > maxRecordedIterations) {
 		maxRecordedIterations = i;
 
-		console.warn("(Polygon-Polygon) Max recorded iteration count:", maxRecordedIterations);
+		console.warn("GJK max recorded iterations:", maxRecordedIterations);
 	}
 
 	return response;
@@ -202,11 +182,11 @@ export function ClosestPointTriangle(simplex) {
 
 	// Calculate ABC barycentric coordinates.
 	{
-		const abc = area(A.vertex, B.vertex, C.vertex);
+		const abc = Vector2.area(A.vertex, B.vertex, C.vertex);
 
-		uABC = area(Q,        B.vertex, C.vertex) / abc;
-		vABC = area(A.vertex, Q,        C.vertex) / abc;
-		wABC = area(A.vertex, B.vertex, Q       ) / abc;
+		uABC = Vector2.area(Q,        B.vertex, C.vertex) / abc;
+		vABC = Vector2.area(A.vertex, Q,        C.vertex) / abc;
+		wABC = Vector2.area(A.vertex, B.vertex, Q       ) / abc;
 	}
 
 	// Test region AB.
@@ -283,47 +263,15 @@ export function ClosestPointLine(simplex) {
 }
 
 /**
- * @param {import("../src/math/index.js").Vector2} a
- * @param {import("../src/math/index.js").Vector2} b
- * @param {import("../src/math/index.js").Vector2} c
- */
-function area(a, b, c) {
-	const ab = new Vector2(b).subtract(a);
-	const ac = new Vector2(c).subtract(a);
-
-	return 0.5 * cross(ab, ac);
-}
-
-/**
  * @param {Simplex} simplex
- */
-function closestPoint(simplex) {
-	switch (simplex.length) {
-		case 1:
-			return;
-		case 2:
-			ClosestPointLine(simplex);
-
-			return;
-		case 3:
-			ClosestPointTriangle(simplex);
-
-			return;
-		default:
-			throw new Error("Invalid simplex.");
-	}
-}
-
-/**
- * @param {SimplexVertex[]} simplex
  */
 function getSearchDirection(simplex) {
 	switch (simplex.length) {
 		case 1:
-			return new Vector2(simplex[0].vertex).negate();
+			return negate(simplex[0].vertex);
 		case 2: {
 			const ab = new Vector2(simplex[1].vertex).subtract(simplex[0].vertex);
-			const sign = cross(ab, new Vector2(simplex[0].vertex).negate());
+			const sign = cross(ab, negate(simplex[0].vertex));
 
 			if (sign > 0) {
 				return new Vector2(-ab.y, ab.x);
@@ -337,7 +285,7 @@ function getSearchDirection(simplex) {
 }
 
 /**
- * @param {ClosestPointPolygonPolygonResponse} response
+ * @param {GJKResponse} response
  * @param {Simplex} simplex
  */
 function getClosestPointsOnPolygons(response, simplex) {
@@ -356,10 +304,6 @@ function getClosestPointsOnPolygons(response, simplex) {
 			/**
 			 * @todo Compute closest points on intersection?
 			 */
-			/* response.closest1 = new Vector2(simplex[0].vertex1).multiplyScalar(simplex[0].u)
-				.add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u))
-				.add(new Vector2(simplex[2].vertex1).multiplyScalar(simplex[2].u));
-			response.closest2 = response.closest1; */
 
 			break;
 	}

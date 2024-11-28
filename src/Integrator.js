@@ -1,5 +1,4 @@
-import {Scene} from "./index.js";
-import {ClosestPointPolygonPolygon} from "../public/GJK.js";
+import {GJK} from "../public/GJK.js";
 
 export class Integrator {
 	/**
@@ -8,7 +7,7 @@ export class Integrator {
 	#view = null;
 
 	/**
-	 * @param {Scene} scene
+	 * @param {import("./index.js").Scene} scene
 	 * @param {Number} deltaTime
 	 */
 	update(scene, deltaTime) {
@@ -17,15 +16,15 @@ export class Integrator {
 		const markedObject1 = objects[scene.getMarkedObject1Index()];
 		const markedObject2 = objects[scene.getMarkedObject2Index()];
 
-		// markedObject1.rotation += 0.005;
-		// markedObject1.updateTransform();
+		markedObject1.rotation += 0.005;
+		markedObject1.updateTransform();
 
 		markedObject2.position.set(this.#view.mouse);
 		markedObject2.updateTransform();
 
-		const closestPointResponse = ClosestPointPolygonPolygon(markedObject1, markedObject2);
+		const gjkResponse = GJK(markedObject1, markedObject2);
 
-		scene.setClosestPointResponse(closestPointResponse);
+		scene.setGJKResponse(gjkResponse);
 	}
 
 	/**

@@ -1,12 +1,11 @@
-import {Vector3} from "../src/math/index.js";
+import {dot, Vector3} from "../../src/math/index.js";
+import {MinkowskiDifference} from "../MinkowskiDifference.js";
 import {check1dSimplex} from "./check1dSimplex.js";
 import {check2dSimplex} from "./check2dSimplex.js";
-import {minkowskiSupport} from "./minkowskiSupport.js";
 
 /**
  * @typedef {Object} GJKResponse
- * @property {Vector3[]} simplex
- * @property {Number} distance
+ * @property {import("../../src/math/index.js").Vector3[]} simplex
  */
 
 /**
@@ -15,8 +14,8 @@ import {minkowskiSupport} from "./minkowskiSupport.js";
 const GJK_MAX_ITERATIONS = 8;
 
 /**
- * @param {import("../src/index.js").Object} object1
- * @param {import("../src/index.js").Object} object2
+ * @param {import("../../src/index.js").Object} object1
+ * @param {import("../../src/index.js").Object} object2
  */
 export function GilbertJohnsonKeerthi(object1, object2) {
 	/**
@@ -25,15 +24,12 @@ export function GilbertJohnsonKeerthi(object1, object2) {
 	const response = {};
 
 	response.simplex = [];
-	response.distance = 0;
 
 	// Start with an arbitrary direction.
 	const D = new Vector3(0, 1, 0);
-	const a = minkowskiSupport(object1, object2, D);
+	const a = MinkowskiDifference.support(object1, object2, D).vertex;
 
-	if (a.dot(D) < 0) {
-		response.distance = D.magnitude();
-
+	if (dot(a, D) < 0) {
 		return response;
 	}
 
@@ -43,11 +39,9 @@ export function GilbertJohnsonKeerthi(object1, object2) {
 	D.negate();
 
 	for (let i = 0; i < GJK_MAX_ITERATIONS; i++) {
-		const a = minkowskiSupport(object1, object2, D);
+		const a = MinkowskiDifference.support(object1, object2, D).vertex;
 
-		if (a.dot(D) < 0) {
-			response.distance = D.magnitude();
-
+		if (dot(a, D) < 0) {
 			return response;
 		}
 

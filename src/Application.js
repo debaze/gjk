@@ -3,11 +3,11 @@ import {clamp, inverse, Matrix3, Vector2, Vector3} from "./math/index.js";
 
 /**
  * @typedef {Object} View
- * @property {Vector2} viewport
+ * @property {import("./math/index.js").Vector2} viewport
  * @property {Number} zoomLevel
- * @property {Matrix3} projection
- * @property {Matrix3} projectionInverse
- * @property {Vector2} mouse
+ * @property {import("./math/index.js").Matrix3} projection
+ * @property {import("./math/index.js").Matrix3} projectionInverse
+ * @property {import("./math/index.js").Vector2} mouse
  */
 
 export class Application {

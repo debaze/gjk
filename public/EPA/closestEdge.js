@@ -1,16 +1,16 @@
-import {PolygonWinding} from "../src/index.js";
-import {Vector3} from "../src/math/index.js";
+import {PolygonWinding} from "../../src/index.js";
+import {Vector2} from "../../src/math/index.js";
 
 /**
  * @typedef {Object} ClosestEdge
- * @property {Vector3} normal
+ * @property {import("../../src/math/index.js").Vector2} normal
  * @property {Number} distance
  * @property {Number} index
  */
 
 /**
- * @param {Vector3[]} polytope
- * @param {PolygonWinding} winding
+ * @param {import("../../src/math/index.js").Vector2[]} polytope
+ * @param {import("../../src/index.js").PolygonWinding} winding
  */
 export function closestEdge(polytope, winding) {
 	/**
@@ -24,13 +24,13 @@ export function closestEdge(polytope, winding) {
 		const j = (i + 1) % polytope.length;
 		const a = polytope[i];
 		const b = polytope[j];
-		const e = new Vector3(b).subtract(a);
-		const n = new Vector3();
+		const e = new Vector2(b).subtract(a);
+		const n = new Vector2(0, 0);
 		const isClockwise = winding === PolygonWinding.CLOCKWISE ? 1 : -1;
 
 		n[0] = e[1] * isClockwise;
 		n[1] = e[0] * -isClockwise;
-		n[2] = e[2];
+		// n[2] = e[2];
 		n.normalize();
 
 		const d = n.dot(a);

@@ -1,6 +1,12 @@
-import {dot, Vector2} from "../src/math/index.js";
+import {negate, Vector2} from "../src/math/index.js";
 
-export class MînkowskiDifference {
+/**
+ * @typedef {Object} Support
+ * @property {Number} index
+ * @property {import("../src/math/index.js").Vector2} vertex (Already transformed)
+ */
+
+export class MinkowskiDifference {
 	/**
 	 * @param {import("../src/index.js").Object} M1
 	 * @param {import("../src/index.js").Object} M2
@@ -12,8 +18,8 @@ export class MînkowskiDifference {
 		 */
 		const simplexVertex = {};
 
-		const s1 = support(M1, D);
-		const s2 = support(M2, new Vector2(D).negate());
+		const s1 = M1.support(D);
+		const s2 = M2.support(negate(D));
 
 		simplexVertex.vertex = new Vector2(s1.vertex).subtract(s2.vertex);
 		simplexVertex.vertex1 = s1.vertex;
@@ -24,38 +30,4 @@ export class MînkowskiDifference {
 
 		return simplexVertex;
 	}
-}
-
-/**
- * @todo Matrix multiplication costly with too many vertices
- * 
- * @param {import("../src/index.js").Object} polygon
- * @param {import("../src/math/index.js").Vector2} D Direction
- */
-function support(polygon, D) {
-	/**
-	 * @type {import("./GJK.js").Support}
-	 */
-	const response = {};
-
-	const vertices = polygon.getGeometry().getVertices();
-
-	response.index = 0;
-	response.vertex = new Vector2(vertices[response.index]).multiplyMatrix(polygon.transform);
-
-	let maxAngle = dot(response.vertex, D);
-
-	for (let i = response.index + 1; i < vertices.length; i++) {
-		const vertex = new Vector2(vertices[i]).multiplyMatrix(polygon.transform);
-		const angle = dot(vertex, D);
-
-		if (angle > maxAngle) {
-			response.index = i;
-			response.vertex = vertex;
-
-			maxAngle = angle;
-		}
-	}
-
-	return response;
 }
