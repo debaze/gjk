@@ -40,7 +40,7 @@ export function GJK(M1, M2) {
 	const response = {};
 
 	// D = COM(M2) - COM(M1)
-	const D = new Vector2(M2.getGeometry().getCenterOfMass()).subtract(M1.getGeometry().getCenterOfMass());
+	const D = new Vector2(M2.geometry.centerOfMass).subtract(M1.geometry.centerOfMass);
 	const A = MinkowskiDifference.support(M1, M2, D);
 
 	/**

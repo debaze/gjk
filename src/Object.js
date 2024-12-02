@@ -54,23 +54,23 @@ export class Object {
 		this.#transform.set(transform);
 	}
 
-	getVelocity() {
+	get velocity() {
 		return this.#velocity;
 	}
 
-	getAcceleration() {
+	get acceleration() {
 		return this.#acceleration;
 	}
 
-	getForce() {
+	get force() {
 		return this.#force;
 	}
 
-	getGeometry() {
+	get geometry() {
 		return this.#geometry;
 	}
 
-	getMaterial() {
+	get material() {
 		return this.#material;
 	}
 
@@ -95,7 +95,7 @@ export class Object {
 		const rotationMatrixInverse = Matrix3.rotation(-this.#rotation);
 		const DInverse = new Vector2(D).multiplyMatrix(rotationMatrixInverse);
 
-		const vertices = this.#geometry.getVertices();
+		const vertices = this.#geometry.vertices;
 
 		response.index = 0;
 		response.vertex = vertices[response.index];

@@ -1,20 +1,33 @@
-import {Vector2} from "./math/index.js";
+import {max, Vector2} from "./math/index.js";
 
 export class Geometry {
-	#centerOfMass = new Vector2(0, 0);
-
 	#vertices;
+	#centerOfMass = new Vector2(0, 0);
+	#radius = 0;
 
 	/**
 	 * @param {import("./math/index.js").Vector2[]} vertices
 	 */
 	constructor(vertices) {
-		if (vertices.length < 3) {
-			throw new Error("Too few vertices provided.");
-		}
-
 		this.#vertices = vertices;
 
+		this.#calculateCenterOfMass();
+		this.#calculateRadius();
+	}
+
+	get centerOfMass() {
+		return this.#centerOfMass;
+	}
+
+	get radius() {
+		return this.#radius;
+	}
+
+	get vertices() {
+		return this.#vertices;
+	}
+
+	#calculateCenterOfMass() {
 		for (let i = 0; i < this.#vertices.length; i++) {
 			const vertex = this.#vertices[i];
 
@@ -24,11 +37,12 @@ export class Geometry {
 		this.#centerOfMass.divideScalar(this.#vertices.length);
 	}
 
-	getCenterOfMass() {
-		return this.#centerOfMass;
-	}
+	#calculateRadius() {
+		for (let i = 0; i < this.#vertices.length; i++) {
+			const vertex = this.#vertices[i];
+			const radius = new Vector2(vertex).subtract(this.#centerOfMass).magnitude();
 
-	getVertices() {
-		return this.#vertices;
+			this.#radius = max(this.#radius, radius);
+		}
 	}
 }

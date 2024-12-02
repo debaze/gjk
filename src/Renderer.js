@@ -18,6 +18,9 @@ export class Renderer {
 	// Axes
 	static #AXIS_COLOR = "#333333";
 
+	// Geometry
+	static #CENTER_OF_MASS_STROKE_COLOR = "#000000";
+
 	// Hovering
 	static #HOVER_FILL_COLOR = "#273ea520";
 	static #HOVER_STROKE_COLOR = "#273ea550";
@@ -152,8 +155,8 @@ export class Renderer {
 	 * @param {Number} index
 	 */
 	#renderObject(object, index) {
-		const geometry = object.getGeometry();
-		const vertices = geometry.getVertices();
+		const geometry = object.geometry;
+		const vertices = geometry.vertices;
 		const v0 = vertices[0];
 
 		this.#context.save();
@@ -186,14 +189,45 @@ export class Renderer {
 				this.#hoveredObjectIndex = null;
 			}
 
-			this.#context.fillStyle = object.getMaterial().getFillColor();
-			this.#context.strokeStyle = object.getMaterial().getStrokeColor();
+			this.#context.fillStyle = object.material.getFillColor();
+			this.#context.strokeStyle = object.material.getStrokeColor();
 		} */
-		this.#context.fillStyle = object.getMaterial().getFillColor();
-		this.#context.strokeStyle = object.getMaterial().getStrokeColor();
+		this.#context.fillStyle = object.material.getFillColor();
+		this.#context.strokeStyle = object.material.getStrokeColor();
 
 		this.#context.fill();
 		this.#context.stroke();
+
+		this.#context.restore();
+
+		this.#renderCenterOfMass(object);
+	}
+
+	/**
+	 * @param {import("./index.js").Object} object
+	 */
+	#renderCenterOfMass(object) {
+		const c = new Vector2(object.geometry.centerOfMass);
+
+		this.#context.save();
+
+		this.#context.fillStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
+		this.#context.strokeStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
+
+		this.#context.translate(object.position.x, object.position.y);
+		this.#context.scale(object.scale.x, object.scale.y);
+
+		this.#context.beginPath();
+		this.#context.arc(c.x, c.y, 0.2, 0, pi * 2);
+		this.#context.stroke();
+		this.#context.clip();
+
+		this.#context.beginPath();
+		this.#context.rect(c.x, c.y, -1, 1);
+		this.#context.rect(c.x, c.y, 1, -1);
+		this.#context.fill();
+		this.#context.stroke();
+
 		this.#context.restore();
 	}
 
@@ -206,7 +240,7 @@ export class Renderer {
 		// Draw simplex on the shapes.
 		if (response.simplex) {
 			const simplex = response.simplex;
-			const p0 = response.object1.getGeometry().getVertices()[simplex[0].index1];
+			const p0 = response.object1.geometry.vertices[simplex[0].index1];
 
 			this.#context.fillStyle = Renderer.#SIMPLEX_FILL_COLOR;
 			this.#context.strokeStyle = Renderer.#SIMPLEX_STROKE_COLOR;
@@ -220,7 +254,7 @@ export class Renderer {
 			this.#context.moveTo(p0.x, p0.y);
 
 			for (let i = 1; i < simplex.length; i++) {
-				const p = response.object1.getGeometry().getVertices()[simplex[i].index1];
+				const p = response.object1.geometry.vertices[simplex[i].index1];
 
 				this.#context.lineTo(p.x, p.y);
 				// this.#context.moveTo(p.x, p.y);
@@ -239,14 +273,14 @@ export class Renderer {
 			this.#context.rotate(-response.object2.rotation);
 			this.#context.scale(response.object2.scale.x, response.object2.scale.y);
 
-			const p01 = response.object2.getGeometry().getVertices()[simplex[0].index2];
+			const p01 = response.object2.geometry.vertices[simplex[0].index2];
 
 			this.#context.beginPath();
 			// this.#context.arc(p01.x, p01.y, 0.1, 0, pi * 2);
 			this.#context.moveTo(p01.x, p01.y);
 
 			for (let i = 1; i < simplex.length; i++) {
-				const p = response.object2.getGeometry().getVertices()[simplex[i].index2];
+				const p = response.object2.geometry.vertices[simplex[i].index2];
 
 				this.#context.lineTo(p.x, p.y);
 				// this.#context.moveTo(p.x, p.y);
