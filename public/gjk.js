@@ -1,5 +1,6 @@
 import {MinkowskiDifference} from "./MinkowskiDifference.js";
 import {cross, length, negate, Vector2} from "../src/math/index.js";
+import {ClosestFeature} from "../src/ClosestFeature.js";
 
 /**
  * @typedef {Object} SimplexVertex
@@ -19,6 +20,8 @@ import {cross, length, negate, Vector2} from "../src/math/index.js";
  * @typedef {Object} GJKResponse
  * @property {import("../src/index.js").Object} object1
  * @property {import("../src/index.js").Object} object2
+ * @property {import("../src/index.js").ClosestFeature} closestFeature1 Closest feature on the shape 1
+ * @property {import("../src/index.js").ClosestFeature} closestFeature2 Closest feature on the shape 2
  * @property {import("../src/math/index.js").Vector2} closest1 Closest point on the shape 1
  * @property {import("../src/math/index.js").Vector2} closest2 Closest point on the shape 2
  * @property {Simplex} [simplex] Visualization purposes
@@ -89,6 +92,7 @@ export function GJK(M1, M2) {
 	response.simplex = S;
 
 	getClosestPointsOnPolygons(response, S);
+	getClosestFeaturesOnPolygons(response, S);
 
 	if (i > maxRecordedIterations) {
 		maxRecordedIterations = i;
@@ -304,6 +308,56 @@ function getClosestPointsOnPolygons(response, simplex) {
 			/**
 			 * @todo Compute closest points on intersection?
 			 */
+
+			break;
+	}
+}
+
+/**
+ * @param {GJKResponse} response
+ * @param {Simplex} simplex
+ */
+function getClosestFeaturesOnPolygons(response, simplex) {
+	switch (simplex.length) {
+		case 1:
+			// Both closest features are vertices
+			response.closestFeature1 = new ClosestFeature([
+				simplex[0].vertex1,
+			]);
+
+			response.closestFeature2 = new ClosestFeature([
+				simplex[0].vertex2,
+			]);
+
+			break;
+		case 2:
+			if (simplex[0].vertex1.x === simplex[1].vertex1.x && simplex[0].vertex1.y === simplex[1].vertex1.y) {
+				// Closest feature 1 is a vertex
+				response.closestFeature1 = new ClosestFeature([
+					simplex[0].vertex1,
+				]);
+			}
+			else {
+				// Closest feature 1 is an edge
+				response.closestFeature1 = new ClosestFeature([
+					simplex[0].vertex1,
+					simplex[1].vertex1,
+				]);
+			}
+
+			if (simplex[0].vertex2.x === simplex[1].vertex2.x && simplex[0].vertex2.y === simplex[1].vertex2.y) {
+				// Closest feature 2 is a vertex
+				response.closestFeature2 = new ClosestFeature([
+					simplex[0].vertex2,
+				]);
+			}
+			else {
+				// Closest feature 2 is an edge
+				response.closestFeature2 = new ClosestFeature([
+					simplex[0].vertex2,
+					simplex[1].vertex2,
+				]);
+			}
 
 			break;
 	}

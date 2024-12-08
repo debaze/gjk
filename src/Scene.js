@@ -12,7 +12,7 @@ export class Scene {
 	#markedObject2Index = null;
 
 	/**
-	 * @type {?import("../public/GJK.js").GJKResponse}
+	 * @type {?import("../public/gjk.js").GJKResponse}
 	 */
 	#gjkResponse = null;
 
@@ -54,7 +54,7 @@ export class Scene {
 	}
 
 	/**
-	 * @param {import("../public/GJK.js").GJKResponse} gjkResponse
+	 * @param {import("../public/gjk.js").GJKResponse} gjkResponse
 	 */
 	setGJKResponse(gjkResponse) {
 		this.#gjkResponse = gjkResponse;

@@ -1,4 +1,4 @@
-import {GJK} from "../public/GJK.js";
+import {GJK} from "../public/gjk.js";
 
 export class Integrator {
 	/**
@@ -16,10 +16,10 @@ export class Integrator {
 		const markedObject1 = objects[scene.getMarkedObject1Index()];
 		const markedObject2 = objects[scene.getMarkedObject2Index()];
 
-		markedObject1.rotation += 0.005;
+		markedObject1.position.set(this.#view.mouse);
 		markedObject1.updateTransform();
 
-		markedObject2.position.set(this.#view.mouse);
+		markedObject2.rotation += 0.005;
 		markedObject2.updateTransform();
 
 		const gjkResponse = GJK(markedObject1, markedObject2);

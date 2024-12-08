@@ -232,7 +232,7 @@ export class Renderer {
 	}
 
 	/**
-	 * @param {import("../public/GJK.js").GJKResponse} response
+	 * @param {import("../public/gjk.js").GJKResponse} response
 	 */
 	#renderGJKResponse(response) {
 		this.#context.save();
@@ -349,7 +349,8 @@ export class Renderer {
 		this.#context.font = "0.25px Arial";
 		this.#context.fillStyle = "#fff";
 		this.#context.scale(1, -1);
-		this.#context.fillText(`${this.#view.mouse}`, tooltipX, -tooltipY + 0.35);
+		this.#context.fillText(this.#scene.getGJKResponse().closestFeature1?.isEdge, tooltipX, -tooltipY + 0.35);
+		// this.#context.fillText(`${this.#view.mouse}`, tooltipX, -tooltipY + 0.35);
 		this.#context.restore();
 	}
 
