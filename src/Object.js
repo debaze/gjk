@@ -5,10 +5,12 @@ export class Object {
 	#rotation = 0;
 	#scale = new Vector2(1, 1);
 	#transform = Matrix3.identity();
-
-	#velocity = new Vector2(0, 0);
-	#acceleration = new Vector2(0, 0);
 	#force = new Vector2(0, 0);
+
+	#linearVelocity = new Vector2(0, 0);
+	#linearAcceleration = new Vector2(0, 0);
+	#angularVelocity = 0;
+	#angularAcceleration = 0;
 
 	#geometry;
 	#material;
@@ -54,16 +56,32 @@ export class Object {
 		this.#transform.set(transform);
 	}
 
-	get velocity() {
-		return this.#velocity;
-	}
-
-	get acceleration() {
-		return this.#acceleration;
-	}
-
 	get force() {
 		return this.#force;
+	}
+
+	get linearVelocity() {
+		return this.#linearVelocity;
+	}
+
+	get linearAcceleration() {
+		return this.#linearAcceleration;
+	}
+
+	get angularVelocity() {
+		return this.#angularVelocity;
+	}
+
+	set angularVelocity(angularVelocity) {
+		this.#angularVelocity = angularVelocity;
+	}
+
+	get angularAcceleration() {
+		return this.#angularAcceleration;
+	}
+
+	set angularAcceleration(angularAcceleration) {
+		this.#angularAcceleration = angularAcceleration;
 	}
 
 	get geometry() {
@@ -75,10 +93,11 @@ export class Object {
 	}
 
 	updateTransform() {
-		const translation = Matrix3.translation(this.#position);
+		const translation = Matrix3.translation(new Vector2(this.#position).subtract(this.#geometry.centerOfMass));
 		const rotation = Matrix3.rotation(this.#rotation);
 		const scale = Matrix3.scale(this.#scale);
-		const transform = translation.multiply(rotation).multiply(scale);
+		const backTranslation = Matrix3.translation(new Vector2(this.#geometry.centerOfMass).negate());
+		const transform = translation.multiply(rotation).multiply(scale).multiply(backTranslation);
 
 		this.#transform.set(transform);
 	}

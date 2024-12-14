@@ -157,28 +157,25 @@ export class Renderer {
 	#renderObject(object, index) {
 		const geometry = object.geometry;
 		const vertices = geometry.vertices;
-		const v0 = vertices[0];
 
 		this.#context.save();
-		this.#context.translate(object.position.x, object.position.y);
-		this.#context.rotate(-object.rotation);
-		this.#context.scale(object.scale.x, object.scale.y);
 		this.#context.beginPath();
-		this.#context.moveTo(v0.x, v0.y);
 
-		for (let vertexIndex = 1; vertexIndex < vertices.length; vertexIndex++) {
-			const v = vertices[vertexIndex];
+		for (let i = 0; i < vertices.length; i++) {
+			const v = new Vector2(vertices[i]).multiplyMatrix(object.transform);
 
 			this.#context.lineTo(v.x, v.y);
 		}
 
-		this.#context.lineTo(v0.x, v0.y);
+		this.#context.closePath();
 
-		const mouse = new Vector2(this.#view.mouse).multiplyMatrix(this.#view.projection);
+		/**
+		 * @todo Move into Application
+		 */
+		/* const mouse = new Vector2(this.#view.mouse).multiplyMatrix(this.#view.projection);
 		const isHovering = this.#context.isPointInPath(mouse.x, mouse.y);
 
-		// TODO: Move into Application
-		/* if (isHovering) {
+		if (isHovering) {
 			this.#hoveredObjectIndex = index;
 
 			this.#context.fillStyle = Renderer.#HOVER_FILL_COLOR;
@@ -192,6 +189,7 @@ export class Renderer {
 			this.#context.fillStyle = object.material.getFillColor();
 			this.#context.strokeStyle = object.material.getStrokeColor();
 		} */
+
 		this.#context.fillStyle = object.material.getFillColor();
 		this.#context.strokeStyle = object.material.getStrokeColor();
 
@@ -200,7 +198,7 @@ export class Renderer {
 
 		this.#context.restore();
 
-		this.#renderCenterOfMass(object);
+		// this.#renderCenterOfMass(object);
 	}
 
 	/**
@@ -232,7 +230,7 @@ export class Renderer {
 	}
 
 	/**
-	 * @param {import("../public/gjk.js").GJKResponse} response
+	 * @param {import("../public/GJK.js").GJKResponse} response
 	 */
 	#renderGJKResponse(response) {
 		this.#context.save();
@@ -349,8 +347,7 @@ export class Renderer {
 		this.#context.font = "0.25px Arial";
 		this.#context.fillStyle = "#fff";
 		this.#context.scale(1, -1);
-		this.#context.fillText(this.#scene.getGJKResponse().closestFeature1?.isEdge, tooltipX, -tooltipY + 0.35);
-		// this.#context.fillText(`${this.#view.mouse}`, tooltipX, -tooltipY + 0.35);
+		this.#context.fillText(`${this.#view.mouse}`, tooltipX, -tooltipY + 0.35);
 		this.#context.restore();
 	}
 
