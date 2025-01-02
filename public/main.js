@@ -9,15 +9,15 @@ await application.initialize();
 
 const plane = new Object(
 	new Geometry([
-		new Vector2(-10, 0),
-		new Vector2(10, 0),
+		new Vector2(-8, 0),
+		new Vector2(8, 0),
 	]),
 	new Material({
 		fillColor: "#ffee8c20",
 		strokeColor: "#ffee8c50",
 	}),
 );
-plane.position.set(new Vector2(0, -4));
+plane.position.set(new Vector2(0, 0));
 plane.updateTransform();
 
 const cube1 = new Object(
@@ -32,8 +32,8 @@ const cube1 = new Object(
 		strokeColor: "#ffee8c50",
 	}),
 );
-cube1.position.set(new Vector2(0, 2));
-cube1.linearVelocity.set(new Vector2(0, -0.01));
+cube1.position.set(new Vector2(0, 5));
+cube1.linearVelocity.set(new Vector2(0, -0.04));
 // cube1.angularVelocity = -0.004;
 cube1.updateTransform();
 

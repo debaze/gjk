@@ -102,8 +102,11 @@ export class Object {
 		this.#transform.set(transform);
 	}
 
+	/**
+	 * @param {Number} t
+	 */
 	at(t) {
-		const p = new Vector2(this.#position).add(new Vector2(this.#angularVelocity).multiplyScalar(t));
+		const p = new Vector2(this.#position).add(new Vector2(this.#linearVelocity).multiplyScalar(t));
 		const r = this.#rotation + this.#angularVelocity * t;
 
 		const translation = Matrix3.translation(new Vector2(p).subtract(this.#geometry.centerOfMass));

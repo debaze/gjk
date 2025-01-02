@@ -1,8 +1,16 @@
-import {GJK} from "../public/GJK.js";
-import {abs, dot, max, Vector2} from "./math/index.js";
+import {abs, dot, Vector2} from "./math/index.js";
 
-const MAX_CLOSEST_FEATURES_ITERATIONS = 1;
+import {GJK} from "../public/GJK.js";
+
+// Iteration limits
+const BISECTION_MAX_ITERATIONS = 32;
+const CLOSEST_FEATURE_MAX_ITERATIONS = 4;
+const POINT_CLOUD_VS_PLANE_MAX_ITERATIONS = 8;
+
+// Tolerances
 const DISTANCE_TOLERANCE = 0.001;
+const DEPTH_TOLERANCE = 0.001;
+const BISECTION_TOLERANCE = 0.001;
 
 /**
  * @typedef {Object} Collision
@@ -21,16 +29,12 @@ export class Integrator {
 		const objects = scene.getObjects();
 
 		this.#integrate(objects);
-
-		// this.#resolveCollisions(collisions);
 	}
 
 	/**
 	 * @param {import("./index.js").Object[]} objects
 	 */
 	#integrate(objects) {
-		const collisions = [];
-
 		for (let i = 0; i < objects.length - 1; i++) {
 			for (let j = i + 1; j < objects.length; j++) {
 				const a = objects[i];
@@ -40,31 +44,113 @@ export class Integrator {
 				let t1 = 1;
 				let toi = 0;
 
-				for (let k = 0; k < MAX_CLOSEST_FEATURES_ITERATIONS; k++) {
+				closestFeature: for (let k = 0; k < CLOSEST_FEATURE_MAX_ITERATIONS; k++) {
 					// Get closest features at t0.
 					const closestFeatures = getClosestFeatures(a, b, t0);
+
+					if (closestFeatures.intersecting) {
+						throw new Error("The shapes are initially intersecting.");
+					}
 
 					const s = closestFeatures.distance;
 
 					if (abs(s) < DISTANCE_TOLERANCE) {
 						toi = t0;
 
+						console.log("TOI", toi);
+
+						advanceTime(a, toi);
+						advanceTime(b, toi);
+
 						break;
 					}
 
 					/**
-					 * @todo Here: Separating axis
+					 * @todo Separating axis for polygon vs. polygon.
 					 */
+					const {polygon, plane} = ca(a, b);
 
 					t1 = 1;
 
 					// Point cloud vs. plane
-					{
-						//
+					pointCloudVsPlane: for (let l = 0; l < POINT_CLOUD_VS_PLANE_MAX_ITERATIONS; l++) {
+						let maxDepth = Number.NEGATIVE_INFINITY;
+						let deepestVertex;
+
+						// Get deepest point at t1.
+						{
+							const transform = polygon.at(t1);
+
+							// Sample each polygon point at t1 to find the deepest point
+							// in the opposite direction from the plane normal.
+							for (let m = 0; m < polygon.geometry.vertices.length; m++) {
+								const vertex = polygon.geometry.vertices[m];
+								const point = new Vector2(vertex).multiplyMatrix(transform);
+
+								const depth = dot(point, new Vector2(plane.n).negate());
+
+								// console.log(depth, point);
+
+								if (depth > maxDepth) {
+									maxDepth = depth;
+									deepestVertex = vertex;
+								}
+							}
+						}
+
+						if (maxDepth < DEPTH_TOLERANCE) {
+							// console.log("No collision.");
+
+							// No collision.
+							advanceTime(a, t1);
+							advanceTime(b, t1);
+
+							break closestFeature;
+						}
+
+						if (maxDepth < -DEPTH_TOLERANCE) {
+							// console.log("Advance t0 = t1.");
+
+							break pointCloudVsPlane;
+						}
+
+						// Find root.
+						{
+							/**
+							 * @param {Number} t
+							 */
+							function n(t) {
+								return new Vector2(plane.n).add(new Vector2(plane.lv).multiplyScalar(t));
+							}
+
+							/**
+							 * @param {Number} t
+							 */
+							function w(t) {
+								return plane.w + plane.av * t;
+							}
+
+							/**
+							 * @param {Number} t
+							 */
+							function separation(t) {
+								const transform = polygon.at(t);
+								const p = new Vector2(deepestVertex).multiplyMatrix(transform);
+
+								return dot(n(t), p) - w(t);
+							}
+
+							// Perform root finding.
+							const root = bisection(separation);
+
+							t1 = root;
+						}
 					}
 
 					t0 = t1;
 				}
+
+				// debugger;
 
 				/* const velocityBound = calculateVelocityBound(a, b, gjk);
 
@@ -75,8 +161,8 @@ export class Integrator {
 				let t = 0;
 				let d = Integrator.#computeDistance(a, b, t);
 
-				for (let i = 0; i < MAX_ITER && Math.abs(d) > DISTANCE_TOLERANCE && t < 1; i++) {
-					const delta = Math.abs(d) / velocityBound;
+				for (let i = 0; i < MAX_ITER && abs(d) > DISTANCE_TOLERANCE && t < 1; i++) {
+					const delta = abs(d) / velocityBound;
 
 					// t = min(1, t + delta);
 					t = t + delta;
@@ -85,24 +171,9 @@ export class Integrator {
 
 				if (t < 1) {
 					// Collision has occurred
-					gjk = GJK(a, b);
-
-					const collision = {
-						gjk: gjk,
-						a: a,
-						b: b,
-						toi: t,
-						n: new Vector2(gjk.closest2).subtract(gjk.closest1).normalize(),
-					};
-
-					console.log(a.position[0], a.position[1], b.position[0], b.position[1])
-
-					collisions.push(collision);
 				} */
 			}
 		}
-
-		return collisions;
 	}
 
 	/**
@@ -264,7 +335,7 @@ function ca(a, b) {
 		throw new Error("Could not convert polygon/polygon to plane/polygon.");
 	}
 
-	findRootPointPlane(polygon, plane);
+	return {polygon, plane};
 }
 
 
@@ -315,9 +386,7 @@ function findRootPointPlane(polygon, plane) {
 		return plane.w + plane.av * t;
 	}
 
-	const DEEPEST_POINT_TOLERANCE = 4;
-
-	for (let i = 0; i < DEEPEST_POINT_TOLERANCE; i++) {
+	for (let i = 0; i < DEEPEST_POINT_MAX_ITERATIONS; i++) {
 		let maxDepth = Number.NEGATIVE_INFINITY;
 		let deepestPoint;
 		let belowPoints = [];
@@ -362,37 +431,37 @@ function findRootPointPlane(polygon, plane) {
 }
 
 /**
- * @param {(t: Number) => Number} s Separation function
+ * @param {(t: Number) => Number} separation
  */
-function bisection(s) {
-	const MAX_BISECTION_ITERATIONS = 16;
-	const BISECTION_TOLERANCE = 0.001;
-
+function bisection(separation) {
 	let t0 = 0;
 	let t1 = 1;
-	let root = 0;
 
-	const s0 = s(t0);
-	const s1 = s(t1);
+	const s0 = separation(t0);
+	const s1 = separation(t1);
 
 	if (!(s0 > 0 && s1 < 0)) {
-		return root;
+		return 1;
 	}
 
-	for (let i = 0; i < MAX_BISECTION_ITERATIONS; i++) {
+	for (let i = 0; i < BISECTION_MAX_ITERATIONS; i++) {
 		const t1_2 = (t0 + t1) * 0.5;
+		const s = separation(t1_2);
 
-		root = s(t1_2);
-
-		if (root > 0) {
+		if (s > 0) {
 			// Push t0 towards t1.
 			t0 = t1_2;
 		}
 
-		if (Math.abs(root) < BISECTION_TOLERANCE) {
+		if (s < 0) {
+			// Push t1 towards t0.
+			t1 = t1_2;
+		}
+
+		if (abs(s) < BISECTION_TOLERANCE) {
 			break;
 		}
 	}
 
-	return root;
+	return t0;
 }
