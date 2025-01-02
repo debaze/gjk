@@ -102,6 +102,19 @@ export class Object {
 		this.#transform.set(transform);
 	}
 
+	at(t) {
+		const p = new Vector2(this.#position).add(new Vector2(this.#angularVelocity).multiplyScalar(t));
+		const r = this.#rotation + this.#angularVelocity * t;
+
+		const translation = Matrix3.translation(new Vector2(p).subtract(this.#geometry.centerOfMass));
+		const rotation = Matrix3.rotation(r);
+		const scale = Matrix3.scale(this.#scale);
+		const backTranslation = Matrix3.translation(new Vector2(this.#geometry.centerOfMass).negate());
+		const transform = translation.multiply(rotation).multiply(scale).multiply(backTranslation);
+
+		return transform;
+	}
+
 	/**
 	 * @param {import("../src/math/index.js").Vector2} D Direction
 	 */

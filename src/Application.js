@@ -115,7 +115,6 @@ export class Application {
 		this.#animationFrameRequestId = requestAnimationFrame(this.#loop.bind(this));
 
 		const time = performance.now();
-		const deltaTime = time - this.#timeSinceLastFrame;
 
 		this.#timeSinceLastFrame = time;
 
@@ -126,7 +125,7 @@ export class Application {
 
 			this.#updateView();
 
-			this.#update(deltaTime);
+			this.#update();
 			this.#render();
 		}
 		catch (error) {
@@ -136,11 +135,8 @@ export class Application {
 		}
 	}
 
-	/**
-	 * @param {Number} deltaTime
-	 */
-	#update(deltaTime) {
-		this.#integrator.update(this.#scene, deltaTime);
+	#update() {
+		this.#integrator.update(this.#scene);
 	}
 
 	#render() {
@@ -247,7 +243,6 @@ export class Application {
 		view.projectionInverse = this.#projectionInverse;
 		view.mouse = this.#mouse;
 
-		this.#integrator.setView(view);
 		this.#renderer.setView(view);
 	}
 }

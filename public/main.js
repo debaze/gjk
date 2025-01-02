@@ -7,42 +7,57 @@ document.body.appendChild(application.getRenderer().getCanvas());
 
 await application.initialize();
 
-const polygon1 = new Object(
+const plane = new Object(
 	new Geometry([
-		new Vector2(-2, 2),
-		new Vector2(2, 2),
-		new Vector2(2, -2),
-		new Vector2(-2, -2),
+		new Vector2(-10, 0),
+		new Vector2(10, 0),
 	]),
 	new Material({
 		fillColor: "#ffee8c20",
 		strokeColor: "#ffee8c50",
 	}),
 );
-polygon1.position.set(new Vector2(-5, 0));
-polygon1.updateTransform();
+plane.position.set(new Vector2(0, -4));
+plane.updateTransform();
 
-const polygon2 = new Object(
+const cube1 = new Object(
 	new Geometry([
-		new Vector2(3, 2),
-		new Vector2(0, 5),
-		new Vector2(-2.5, 3.5),
-		new Vector2(-3.5, -1.5),
-		new Vector2(1.5, -2),
+		new Vector2(-1, 1),
+		new Vector2(1, 1),
+		new Vector2(1, -1),
+		new Vector2(-1, -1),
 	]),
 	new Material({
 		fillColor: "#ffee8c20",
 		strokeColor: "#ffee8c50",
 	}),
 );
-polygon2.position.set(new Vector2(4, 0));
-polygon2.linearVelocity.set(new Vector2(-0.02, 0));
-polygon2.angularVelocity = -0.004;
-polygon2.updateTransform();
+cube1.position.set(new Vector2(0, 2));
+cube1.linearVelocity.set(new Vector2(0, -0.01));
+// cube1.angularVelocity = -0.004;
+cube1.updateTransform();
+
+const cube2 = new Object(
+	new Geometry([
+		new Vector2(-1, 1),
+		new Vector2(1, 1),
+		new Vector2(1, -1),
+		new Vector2(-1, -1),
+	]),
+	new Material({
+		fillColor: "#ffee8c20",
+		strokeColor: "#ffee8c50",
+	}),
+);
+cube2.position.set(new Vector2(7, -4));
+cube2.linearVelocity.set(new Vector2(0, 0));
+// cube2.angularVelocity = -0.004;
+cube2.updateTransform();
 
 const scene = new Scene([
-	polygon1,
-	polygon2,
+	plane,
+	cube1,
+	// cube2,
 ]);
 
 application.setScene(scene);

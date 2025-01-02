@@ -97,6 +97,11 @@ export function GJK(M1, M2) {
 	getClosestPointsOnPolygons(response, S);
 	getDistanceAndIntersecting(response, S);
 
+	if (response.closest1 && response.closest2) {
+		response.closest1.multiplyMatrix(M1.transform);
+		response.closest2.multiplyMatrix(M2.transform);
+	}
+
 	if (i > maxRecordedIterations) {
 		maxRecordedIterations = i;
 

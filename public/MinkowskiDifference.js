@@ -14,7 +14,7 @@ export class MinkowskiDifference {
 	 */
 	static support(M1, M2, D) {
 		/**
-		 * @type {import("./gjk.js").SimplexVertex}
+		 * @type {import("./GJK.js").SimplexVertex}
 		 */
 		const simplexVertex = {};
 
