@@ -9,8 +9,10 @@ await application.initialize();
 
 const plane = new Object(
 	new Geometry([
-		new Vector2(-6, 0),
-		new Vector2(6, 0),
+		new Vector2(-3, 0),
+		new Vector2(4, 0),
+		new Vector2(3, -1),
+		new Vector2(-2.25, -1.5),
 	]),
 	new Material({
 		fillColor: "#ffee8c20",
@@ -18,7 +20,8 @@ const plane = new Object(
 	}),
 );
 plane.label = "Plane";
-plane.position.set(new Vector2(0, 0));
+plane.position.set(new Vector2(0.45, -0.625));
+// plane.angularVelocity = radians(0.1);
 plane.updateTransform();
 
 /* const cube1 = new Object(

@@ -1,5 +1,5 @@
 import {MinkowskiDifference} from "./MinkowskiDifference.js";
-import {cross, distance, length, negate, Vector2} from "../src/math/index.js";
+import {cross, distance, dot, length, negate, Vector2} from "../src/math/index.js";
 import {ClosestFeature} from "../src/ClosestFeature.js";
 
 /**
@@ -10,10 +10,6 @@ import {ClosestFeature} from "../src/ClosestFeature.js";
  * @property {Number} index1 Index on shape 1
  * @property {Number} index2 Index on shape 2
  * @property {Number} u Closest point barycentric coordinate
- */
-
-/**
- * @typedef {SimplexVertex[]} Simplex
  */
 
 /**
@@ -34,6 +30,40 @@ const GJK_MAX_ITERATIONS = 8;
 // Max recorded = 4
 let maxRecordedIterations = 0;
 
+class Simplex extends Array {
+	divisor = 1;
+
+	getSearchDirection() {
+		switch (this.length) {
+			case 1:
+				return negate(this[0].vertex);
+			case 2: {
+				const ab = new Vector2(this[1].vertex).subtract(this[0].vertex);
+				const sign = cross(ab, negate(this[0].vertex));
+
+				if (sign > 0) {
+					return new Vector2(-ab.y, ab.x);
+				}
+				else {
+					return new Vector2(ab.y, -ab.x);
+				}
+			}
+			default:
+				throw new Error("Invalid simplex.");
+		}
+	}
+
+	copy() {
+		const copy = new Simplex();
+
+		for (let i = 0; i < this.length; i++) {
+			copy[i] = this[i];
+		}
+
+		return copy;
+	}
+}
+
 /**
  * @param {import("../src/index.js").Object} M1
  * @param {import("../src/index.js").Object} M2
@@ -44,36 +74,45 @@ export function GJK(M1, M2) {
 	 */
 	const response = {};
 
+	response.object1 = M1;
+	response.object2 = M2;
+
 	// D = COM(M2) - COM(M1)
 	const D = new Vector2(M2.geometry.centerOfMass).subtract(M1.geometry.centerOfMass);
 	const A = MinkowskiDifference.support(M1, M2, D);
 
-	/**
-	 * @type {Simplex}
-	 */
-	const S = [A];
+	const S = new Simplex();
+	S.push(A);
 
 	let i = 0;
 
-	loop: for (; i <= GJK_MAX_ITERATIONS; i++) {
-		const SCopy = [...S];
+	loop: for (; i < GJK_MAX_ITERATIONS; i++) {
+		const SCopy = S.copy();
 
-		if (S.length === 2) {
-			ClosestPointLine(S);
-		}
-		else if (S.length === 3) {
-			ClosestPointTriangle(S);
+		// Determine the closest point on the simplex and remove unused vertices.
+		switch (S.length) {
+			case 1:
+				break;
+			case 2:
+				ClosestPointLine(S, new Vector2(0, 0));
+
+				break;
+			case 3:
+				ClosestPointTriangle(S, new Vector2(0, 0));
+
+				break;
 		}
 
+		// If we have 3 points, then the origin is in the corresponding triangle.
 		if (S.length === 3) {
 			break;
 		}
 
 		// D ~= (0, 0) - P
-		D.set(getSearchDirection(S));
+		D.set(S.getSearchDirection());
 
 		if (D.x === 0 && D.y === 0) {
-			console.warn("Vertex overlap: D = (0, 0).");
+			console.warn("Search direction is 0 (vertex overlap).");
 
 			break;
 		}
@@ -89,24 +128,18 @@ export function GJK(M1, M2) {
 		S.push(P);
 	}
 
-	response.object1 = M1;
-	response.object2 = M2;
-	response.simplex = S;
-
-	getClosestFeaturesOnPolygons(response, S);
-	getClosestPointsOnPolygons(response, S);
-	getDistance(response, S);
-
-	/* if (response.closest1 && response.closest2) {
-		response.closest1.multiplyMatrix(M1.transform);
-		response.closest2.multiplyMatrix(M2.transform);
-	} */
-
 	if (!GJK_SILENT && i > maxRecordedIterations) {
 		maxRecordedIterations = i;
 
 		console.warn("GJK max recorded iterations:", maxRecordedIterations);
 	}
+
+	response.simplex = S;
+
+	getClosestFeaturesOnPolygons(response, S);
+	getClosestPointsOnPolygons(response, S);
+
+	response.distance = distance(response.closest1, response.closest2);
 
 	return response;
 }
@@ -119,181 +152,152 @@ export function GJK(M1, M2) {
  * 5. If not in an edge region, return interior region.
  * 
  * @param {Simplex} simplex
+ * @param {import("../src/math/index.js").Vector2} p
  */
-export function ClosestPointTriangle(simplex) {
-	const A = simplex[0];
-	const B = simplex[1];
-	const C = simplex[2];
-	const Q = new Vector2(0, 0);
+export function ClosestPointTriangle(simplex, p) {
+	const a = simplex[0].vertex;
+	const b = simplex[1].vertex;
+	const c = simplex[2].vertex;
 
-	let uAB, vAB;
-	let uBC, vBC;
-	let uCA, vCA;
+	const ab = new Vector2(b).subtract(a);
+	const bc = new Vector2(c).subtract(b);
+	const ca = new Vector2(a).subtract(c);
+	const ac = new Vector2(c).subtract(a);
+	const ba = new Vector2(a).subtract(b);
+	const cb = new Vector2(b).subtract(c);
+	const ap = new Vector2(p).subtract(a);
+	const bp = new Vector2(p).subtract(b);
+	const cp = new Vector2(p).subtract(c);
+	const pa = new Vector2(a).subtract(p);
+	const pb = new Vector2(b).subtract(p);
+	const pc = new Vector2(c).subtract(p);
 
-	// Calculate AB barycentric coordinates.
-	{
-		const ABnorm = new Vector2(B.vertex).subtract(A.vertex);
-		const ABlen = length(ABnorm);
+	let uAB = bp.dot(ba);
+	let vAB = ap.dot(ab);
+	let uBC = cp.dot(cb);
+	let vBC = bp.dot(bc);
+	let uCA = ap.dot(ac);
+	let vCA = cp.dot(ca);
 
-		ABnorm.normalize();
-
-		vAB = B.vertex.dot(ABnorm) / ABlen;
-		uAB = 1 - vAB;
-	}
-
-	// Calculate BC barycentric coordinates.
-	{
-		const BCnorm = new Vector2(C.vertex).subtract(B.vertex);
-		const BClen = length(BCnorm);
-
-		BCnorm.normalize();
-
-		vBC = C.vertex.dot(BCnorm) / BClen;
-		uBC = 1 - vBC;
-	}
-
-	// Calculate CA barycentric coordinates.
-	{
-		const CAnorm = new Vector2(A.vertex).subtract(C.vertex);
-		const CAlen = length(CAnorm);
-
-		CAnorm.normalize();
-
-		vCA = A.vertex.dot(CAnorm) / CAlen;
-		uCA = 1 - vCA;
-	}
-
-	// Test region A.
-	if (uCA > 1 && uAB <= 0) {
-		A.u = 1;
-		simplex[0] = A;
+	if (vAB <= 0 && uCA <= 0) {
+		// In region A.
+		simplex[0].u = 1;
+		simplex.divisor = 1;
 		simplex.length = 1;
 
 		return;
 	}
 
-	// Test region B.
-	if (uAB > 1 && uBC <= 0) {
-		B.u = 1;
-		simplex[0] = B;
+	if (uAB <= 0 && vBC <= 0) {
+		// In region B.
+		simplex[0] = simplex[1];
+		simplex[0].u = 1;
+		simplex.divisor = 1;
 		simplex.length = 1;
 
 		return;
 	}
 
-	// Test region C.
-	if (uBC > 1 && uCA <= 0) {
-		C.u = 1;
-		simplex[0] = C;
+	if (uBC <= 0 && vCA <= 0) {
+		// In region C.
+		simplex[0] = simplex[2];
+		simplex[0].u = 1;
+		simplex.divisor = 1;
 		simplex.length = 1;
 
 		return;
 	}
 
-	let uABC, vABC, wABC;
+	// Compute signed triangle area.
+	const area = cross(ab, ac);
 
-	// Calculate ABC barycentric coordinates.
-	{
-		const abc = Vector2.area(A.vertex, B.vertex, C.vertex);
+	// Compute triangle barycentric coordinates (pre-division).
+	const uABC = cross(pb, pc);
+	const vABC = cross(pc, pa);
+	const wABC = cross(pa, pb);
 
-		uABC = Vector2.area(Q,        B.vertex, C.vertex) / abc;
-		vABC = Vector2.area(A.vertex, Q,        C.vertex) / abc;
-		wABC = Vector2.area(A.vertex, B.vertex, Q       ) / abc;
-	}
-
-	// Test region AB.
-	if (uAB >= 0 && vAB >= 0 && wABC <= 0) {
-		A.u = vAB;
-		B.u = uAB;
-		simplex[0] = A;
-		simplex[1] = B;
+	if (uAB > 0 && vAB > 0 && wABC * area <= 0) {
+		// In region AB.
+		simplex[0].u = uAB;
+		simplex[1].u = vAB;
+		simplex.divisor = dot(ab, ab);
 		simplex.length = 2;
 
 		return;
 	}
 
-	// Test region BC.
-	if (uBC >= 0 && vBC >= 0 && uABC <= 0) {
-		B.u = vBC;
-		C.u = uBC;
-		simplex[0] = B;
-		simplex[1] = C;
+	if (uBC > 0 && vBC > 0 && uABC * area <= 0) {
+		// In region BC.
+		simplex[0] = simplex[1];
+		simplex[1] = simplex[2];
+		simplex[0].u = uBC;
+		simplex[1].u = vBC;
+		simplex.divisor = dot(bc, bc);
 		simplex.length = 2;
 
 		return;
 	}
 
-	// Test region CA.
-	if (uCA >= 0 && vCA >= 0 && vABC <= 0) {
-		C.u = vCA;
-		A.u = uCA;
-		simplex[0] = C;
-		simplex[1] = A;
+	if (uCA > 0 && vCA > 0 && vABC * area <= 0) {
+		// In region CA.
+		simplex[1] = simplex[0];
+		simplex[0] = simplex[2];
+		simplex[0].u = uCA;
+		simplex[1].u = vCA;
+		simplex.divisor = dot(ca, ca);
 		simplex.length = 2;
 
 		return;
+	}
+
+	// In region ABC.
+	if (uABC > 0 && vABC > 0 && wABC > 0) {
+		throw new Error();
 	}
 
 	simplex[0].u = uABC;
 	simplex[1].u = vABC;
 	simplex[2].u = wABC;
+	simplex.divisor = area;
+	simplex.length = 3;
 }
 
 /**
  * @param {Simplex} simplex
+ * @param {import("../src/math/index.js").Vector2} p
  */
-export function ClosestPointLine(simplex) {
-	const a = simplex[0];
-	const b = simplex[1];
-	const ab = new Vector2(b.vertex).subtract(a.vertex);
-	const length = ab.magnitude();
-	const normal = ab.normalize();
+export function ClosestPointLine(simplex, p) {
+	const a = simplex[0].vertex;
+	const b = simplex[1].vertex;
+	const ab = new Vector2(b).subtract(a);
 
-	const v = b.vertex.dot(normal) / length;
-	const u = 1 - v;
+	const u = dot(new Vector2(p).subtract(b), new Vector2(a).subtract(b)); // dot(p - b, a - b)
+	const v = dot(new Vector2(p).subtract(a), new Vector2(b).subtract(a)); // dot(p - a, b - a)
 
-	if (u < 0) {
-		a.u = 1;
-
-		simplex[0] = a;
+	if (v <= 0) {
+		// In region A.
+		simplex[0].u = 1;
+		simplex.divisor = 1;
 		simplex.length = 1;
 
 		return;
 	}
 
-	if (v < 0) {
-		b.u = 1;
-
-		simplex[0] = b;
+	if (u <= 0) {
+		// In region B.
+		simplex[0] = simplex[1];
+		simplex[0].u = 1;
+		simplex.divisor = 1;
 		simplex.length = 1;
 
 		return;
 	}
 
-	simplex[0].u = 1 - u;
-	simplex[1].u = 1 - v;
-}
-
-/**
- * @param {Simplex} simplex
- */
-function getSearchDirection(simplex) {
-	switch (simplex.length) {
-		case 1:
-			return negate(simplex[0].vertex);
-		case 2: {
-			const ab = new Vector2(simplex[1].vertex).subtract(simplex[0].vertex);
-			const sign = cross(ab, negate(simplex[0].vertex));
-
-			if (sign > 0) {
-				return new Vector2(-ab.y, ab.x);
-			}
-
-			return new Vector2(ab.y, -ab.x);
-		}
-		default:
-			throw new Error("Invalid simplex.");
-	}
+	// In region AB.
+	simplex[0].u = u;
+	simplex[1].u = v;
+	simplex.divisor = dot(ab, ab);
+	simplex.length = 2;
 }
 
 /**
@@ -301,6 +305,8 @@ function getSearchDirection(simplex) {
  * @param {Simplex} simplex
  */
 function getClosestPointsOnPolygons(response, simplex) {
+	const s = 1 / simplex.divisor;
+
 	switch (simplex.length) {
 		case 1:
 			response.closest1 = simplex[0].vertex1;
@@ -308,34 +314,15 @@ function getClosestPointsOnPolygons(response, simplex) {
 
 			break;
 		case 2:
-			response.closest1 = new Vector2(simplex[0].vertex1).multiplyScalar(simplex[0].u).add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u));
-			response.closest2 = new Vector2(simplex[0].vertex2).multiplyScalar(simplex[0].u).add(new Vector2(simplex[1].vertex2).multiplyScalar(simplex[1].u));
+			response.closest1 = new Vector2(simplex[0].vertex1).multiplyScalar(simplex[0].u * s).add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u * s));
+			response.closest2 = new Vector2(simplex[0].vertex2).multiplyScalar(simplex[0].u * s).add(new Vector2(simplex[1].vertex2).multiplyScalar(simplex[1].u * s));
 
 			break;
 		case 3:
-			/**
-			 * @todo Compute closest points on intersection?
-			 */
-
-			break;
-	}
-}
-
-/**
- * @param {GJKResponse} response
- * @param {Simplex} simplex
- */
-function getDistance(response, simplex) {
-	switch (simplex.length) {
-		case 1:
-		case 2:
-			response.distance = distance(response.closest1, response.closest2);
-			// intersecting = false
-
-			break;
-		case 3:
-			response.distance = 0;
-			// intersecting = true
+			response.closest1 = new Vector2(simplex[0].vertex1).multiplyScalar(simplex[0].u * s)
+				.add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u * s))
+				.add(new Vector2(simplex[2].vertex1).multiplyScalar(simplex[2].u * s));
+			response.closest2 = response.closest1;
 
 			break;
 	}

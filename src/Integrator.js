@@ -75,6 +75,7 @@ export class Integrator {
 					 * @todo Tolerance?
 					 */
 					if (closestFeatures.distance === 0) {
+						debugger;
 						throw new Error("The shapes are initially intersecting.");
 					}
 
@@ -211,23 +212,7 @@ export class Integrator {
 function getObjectAt(object, t) {
 	const copy = Object.copy(object);
 
-	const linearVelocity = new Vector2(copy.linearVelocity).multiplyScalar(t);
-	const angularVelocity = copy.angularVelocity * t;
-
-	const linearAcceleration = new Vector2(copy.linearAcceleration).multiplyScalar(t);
-	const angularAcceleration = copy.angularAcceleration * t;
-
-	copy.position.add(linearVelocity);
-
-	/**
-	 * @todo Rotate about center of mass, not position
-	 */
-	copy.rotation += angularVelocity;
-
-	copy.linearVelocity.add(linearAcceleration);
-	copy.angularVelocity += angularAcceleration;
-
-	copy.updateTransform();
+	updateObjectAtT(copy, t);
 
 	return copy;
 }

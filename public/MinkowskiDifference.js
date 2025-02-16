@@ -26,10 +26,10 @@ export class MinkowskiDifference {
 		 */
 		const simplexVertex = {};
 
-		const s1 = M1.support(D);
-		const s2 = M2.support(negate(D));
+		const s1 = M1.support(negate(D));
+		const s2 = M2.support(D);
 
-		simplexVertex.vertex = new Vector2(s1.vertex).subtract(s2.vertex);
+		simplexVertex.vertex = new Vector2(s2.vertex).subtract(s1.vertex);
 		simplexVertex.vertex1 = s1.vertex;
 		simplexVertex.vertex2 = s2.vertex;
 		simplexVertex.index1 = s1.index;
