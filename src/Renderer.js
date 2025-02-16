@@ -74,12 +74,19 @@ export class Renderer {
 	}
 
 	render() {
+		const objects = this.#scene.getObjects();
+
 		this.#clear();
 
 		this.#renderGrid();
 		this.#renderAxes();
 
-		this.#renderScene();
+		for (let i = 0; i < objects.length; i++) {
+			const object = objects[i];
+
+			this.#renderObject(object, i);
+			this.#renderCenterOfMass(object);
+		}
 
 		if (this.#scene.getGJKResponse() !== null) {
 			this.#renderGJKResponse(this.#scene.getGJKResponse());
@@ -94,60 +101,6 @@ export class Renderer {
 
 		this.#context.fillStyle = Renderer.#BACKGROUND_COLOR;
 		this.#context.fillRect(-w * 0.5, -h * 0.5, w, h);
-	}
-
-	#renderGrid() {
-		const w = this.#view.viewport.x;
-		const h = this.#view.viewport.y;
-
-		this.#context.strokeStyle = Renderer.#GRID_COLOR;
-		this.#context.beginPath();
-
-		// Draw columns.
-		for (let x = Renderer.#GRID_COLUMN_GAP; x < w * 0.5; x += Renderer.#GRID_COLUMN_GAP) {
-			this.#context.moveTo(-x, -h * 0.5);
-			this.#context.lineTo(-x, h * 0.5);
-			this.#context.moveTo(x, -h * 0.5);
-			this.#context.lineTo(x, h * 0.5);
-		}
-
-		// Draw rows.
-		for (let y = Renderer.#GRID_ROW_GAP; y < h * 0.5; y += Renderer.#GRID_ROW_GAP) {
-			this.#context.moveTo(-w * 0.5, -y);
-			this.#context.lineTo(w * 0.5, -y);
-			this.#context.moveTo(-w * 0.5, y);
-			this.#context.lineTo(w * 0.5, y);
-		}
-
-		this.#context.stroke();
-	}
-
-	#renderAxes() {
-		const w = this.#view.viewport.x;
-		const h = this.#view.viewport.y;
-
-		this.#context.strokeStyle = Renderer.#AXIS_COLOR;
-		this.#context.beginPath();
-
-		// Draw horizontal axis.
-		this.#context.moveTo(-w * 0.5, 0);
-		this.#context.lineTo(w * 0.5, 0);
-
-		// Draw vertical axis.
-		this.#context.moveTo(0, -h * 0.5);
-		this.#context.lineTo(0, h * 0.5);
-
-		this.#context.stroke();
-	}
-
-	#renderScene() {
-		const objects = this.#scene.getObjects();
-
-		for (let objectIndex = 0; objectIndex < objects.length; objectIndex++) {
-			const object = objects[objectIndex];
-
-			this.#renderObject(object, objectIndex);
-		}
 	}
 
 	/**
@@ -198,35 +151,7 @@ export class Renderer {
 
 		this.#context.restore();
 
-		// this.#renderCenterOfMass(object);
-	}
-
-	/**
-	 * @param {import("./index.js").Object} object
-	 */
-	#renderCenterOfMass(object) {
-		const c = new Vector2(object.geometry.centerOfMass);
-
-		this.#context.save();
-
-		this.#context.fillStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
-		this.#context.strokeStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
-
-		this.#context.translate(object.position.x, object.position.y);
-		this.#context.scale(object.scale.x, object.scale.y);
-
-		this.#context.beginPath();
-		this.#context.arc(c.x, c.y, 0.2, 0, pi * 2);
-		this.#context.stroke();
-		this.#context.clip();
-
-		this.#context.beginPath();
-		this.#context.rect(c.x, c.y, -1, 1);
-		this.#context.rect(c.x, c.y, 1, -1);
-		this.#context.fill();
-		this.#context.stroke();
-
-		this.#context.restore();
+		this.#renderCenterOfMass(object);
 	}
 
 	/**
@@ -251,14 +176,14 @@ export class Renderer {
 			// this.#context.arc(p0.x, p0.y, 0.1, 0, pi * 2);
 			this.#context.moveTo(p0.x, p0.y);
 
-			for (let i = 1; i < simplex.length; i++) {
+			/* for (let i = 1; i < simplex.length; i++) {
 				const p = response.object1.geometry.vertices[simplex[i].index1];
 
 				this.#context.lineTo(p.x, p.y);
 				// this.#context.moveTo(p.x, p.y);
 				// this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
 				// this.#context.moveTo(p.x, p.y);
-			}
+			} */
 
 			this.#context.lineTo(p0.x, p0.y);
 			this.#context.stroke();
@@ -277,14 +202,14 @@ export class Renderer {
 			// this.#context.arc(p01.x, p01.y, 0.1, 0, pi * 2);
 			this.#context.moveTo(p01.x, p01.y);
 
-			for (let i = 1; i < simplex.length; i++) {
+			/* for (let i = 1; i < simplex.length; i++) {
 				const p = response.object2.geometry.vertices[simplex[i].index2];
 
 				this.#context.lineTo(p.x, p.y);
 				// this.#context.moveTo(p.x, p.y);
 				// this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
 				// this.#context.moveTo(p.x, p.y);
-			}
+			} */
 
 			this.#context.lineTo(p01.x, p01.y);
 			this.#context.fill();
@@ -362,5 +287,77 @@ export class Renderer {
 
 		this.#context.setTransform(this.#view.projection[0], 0, 0, this.#view.projection[4], this.#view.projection[6], this.#view.projection[7]);
 		this.#context.lineWidth = 1 / this.#view.zoomLevel;
+	}
+
+	/// Stable utilities ///
+
+	#renderGrid() {
+		const w = this.#view.viewport.x;
+		const h = this.#view.viewport.y;
+
+		this.#context.strokeStyle = Renderer.#GRID_COLOR;
+		this.#context.beginPath();
+
+		// Draw columns.
+		for (let x = Renderer.#GRID_COLUMN_GAP; x < w * 0.5; x += Renderer.#GRID_COLUMN_GAP) {
+			this.#context.moveTo(-x, -h * 0.5);
+			this.#context.lineTo(-x, h * 0.5);
+			this.#context.moveTo(x, -h * 0.5);
+			this.#context.lineTo(x, h * 0.5);
+		}
+
+		// Draw rows.
+		for (let y = Renderer.#GRID_ROW_GAP; y < h * 0.5; y += Renderer.#GRID_ROW_GAP) {
+			this.#context.moveTo(-w * 0.5, -y);
+			this.#context.lineTo(w * 0.5, -y);
+			this.#context.moveTo(-w * 0.5, y);
+			this.#context.lineTo(w * 0.5, y);
+		}
+
+		this.#context.stroke();
+	}
+
+	#renderAxes() {
+		const w = this.#view.viewport.x;
+		const h = this.#view.viewport.y;
+
+		this.#context.strokeStyle = Renderer.#AXIS_COLOR;
+		this.#context.beginPath();
+
+		// Draw horizontal axis.
+		this.#context.moveTo(-w * 0.5, 0);
+		this.#context.lineTo(w * 0.5, 0);
+
+		// Draw vertical axis.
+		this.#context.moveTo(0, -h * 0.5);
+		this.#context.lineTo(0, h * 0.5);
+
+		this.#context.stroke();
+	}
+
+	/**
+	 * @param {import("./index.js").Object} object
+	 */
+	#renderCenterOfMass(object) {
+		this.#context.save();
+
+		this.#context.fillStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
+		this.#context.strokeStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
+
+		this.#context.translate(object.position.x, object.position.y);
+		this.#context.scale(object.scale.x, object.scale.y);
+
+		this.#context.beginPath();
+		this.#context.arc(0, 0, 0.2, 0, pi * 2);
+		this.#context.stroke();
+		this.#context.clip();
+
+		this.#context.beginPath();
+		this.#context.rect(0, 0, -1, 1);
+		this.#context.rect(0, 0, 1, -1);
+		this.#context.fill();
+		this.#context.stroke();
+
+		this.#context.restore();
 	}
 }

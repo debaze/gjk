@@ -6,6 +6,24 @@ export class Geometry {
 	#radius = 0;
 
 	/**
+	 * @param {Geometry} geometry
+	 */
+	static copy(geometry) {
+		const verticesCopy = [];
+
+		for (let i = 0; i < geometry.vertices.length; i++) {
+			verticesCopy[i] = new Vector2(geometry.vertices[i]);
+		}
+
+		const copy = new Geometry(verticesCopy);
+
+		copy.centerOfMass = new Vector2(geometry.centerOfMass);
+		copy.radius = geometry.radius;
+
+		return copy;
+	}
+
+	/**
 	 * @param {import("./math/index.js").Vector2[]} vertices
 	 */
 	constructor(vertices) {
@@ -19,8 +37,16 @@ export class Geometry {
 		return this.#centerOfMass;
 	}
 
+	set centerOfMass(centerOfMass) {
+		this.#centerOfMass = new Vector2(centerOfMass);
+	}
+
 	get radius() {
 		return this.#radius;
+	}
+
+	set radius(radius) {
+		this.#radius = radius;
 	}
 
 	get vertices() {

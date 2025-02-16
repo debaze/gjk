@@ -1,15 +1,15 @@
+import {Object} from "./index.js";
 import {abs, dot, Vector2} from "./math/index.js";
 
 import {GJK} from "../public/GJK.js";
 
 // Iteration limits
 const BISECTION_MAX_ITERATIONS = 32;
-const CLOSEST_FEATURE_MAX_ITERATIONS = 4;
-const POINT_CLOUD_VS_PLANE_MAX_ITERATIONS = 8;
+const CLOSEST_FEATURE_MAX_ITERATIONS = 2;
+const POINT_CLOUD_VS_PLANE_MAX_ITERATIONS = 4;
 
 // Tolerances
 const DISTANCE_TOLERANCE = 0.001;
-const DEPTH_TOLERANCE = 0.001;
 const BISECTION_TOLERANCE = 0.001;
 
 /**
@@ -24,21 +24,44 @@ const BISECTION_TOLERANCE = 0.001;
 export class Integrator {
 	/**
 	 * @param {import("./index.js").Scene} scene
+	 * @param {Number} frameIndex
 	 */
-	update(scene) {
+	update(scene, frameIndex) {
 		const objects = scene.getObjects();
 
-		this.#integrate(objects);
+		if (objects.length === 2) {
+			const gjkResponse = GJK(objects[0], objects[1]); // at t = 0
+
+			scene.setGJKResponse(gjkResponse);
+		}
+
+		this.#integrate(objects, frameIndex);
 	}
 
 	/**
 	 * @param {import("./index.js").Object[]} objects
+	 * @param {Number} frameIndex
 	 */
-	#integrate(objects) {
+	#integrate(objects, frameIndex) {
+		// Standard update
+		/* {
+			for (let i = 0; i < objects.length; i++) {
+				const a = objects[i];
+
+				updateObject(a);
+			}
+
+			return;
+		} */
+
+		if (frameIndex !== 0) {
+			// return;
+		}
+
 		for (let i = 0; i < objects.length - 1; i++) {
 			for (let j = i + 1; j < objects.length; j++) {
-				const a = objects[i];
-				const b = objects[j];
+				const a = objects[i]; // plane
+				const b = objects[j]; // polygon (cube)
 
 				let t0 = 0;
 				let t1 = 1;
@@ -48,7 +71,10 @@ export class Integrator {
 					// Get closest features at t0.
 					const closestFeatures = getClosestFeatures(a, b, t0);
 
-					if (closestFeatures.intersecting) {
+					/**
+					 * @todo Tolerance?
+					 */
+					if (closestFeatures.distance === 0) {
 						throw new Error("The shapes are initially intersecting.");
 					}
 
@@ -56,11 +82,6 @@ export class Integrator {
 
 					if (abs(s) < DISTANCE_TOLERANCE) {
 						toi = t0;
-
-						console.log("TOI", toi);
-
-						advanceTime(a, toi);
-						advanceTime(b, toi);
 
 						break;
 					}
@@ -74,45 +95,24 @@ export class Integrator {
 
 					// Point cloud vs. plane
 					pointCloudVsPlane: for (let l = 0; l < POINT_CLOUD_VS_PLANE_MAX_ITERATIONS; l++) {
-						let maxDepth = Number.NEGATIVE_INFINITY;
-						let deepestVertex;
+						const support = polygon.supportTime(new Vector2(plane.n).negate(), t1);
+						const d = dot(support.transformedVertex, plane.n);
 
-						// Get deepest point at t1.
-						{
-							const transform = polygon.at(t1);
-
-							// Sample each polygon point at t1 to find the deepest point
-							// in the opposite direction from the plane normal.
-							for (let m = 0; m < polygon.geometry.vertices.length; m++) {
-								const vertex = polygon.geometry.vertices[m];
-								const point = new Vector2(vertex).multiplyMatrix(transform);
-
-								const depth = dot(point, new Vector2(plane.n).negate());
-
-								// console.log(depth, point);
-
-								if (depth > maxDepth) {
-									maxDepth = depth;
-									deepestVertex = vertex;
-								}
-							}
-						}
-
-						if (maxDepth < DEPTH_TOLERANCE) {
-							// console.log("No collision.");
+						/* if (d > DISTANCE_TOLERANCE) {
+							console.log("No collision.");
 
 							// No collision.
 							advanceTime(a, t1);
 							advanceTime(b, t1);
 
 							break closestFeature;
-						}
+						} */
 
-						if (maxDepth < -DEPTH_TOLERANCE) {
-							// console.log("Advance t0 = t1.");
+						/* if (d > -DISTANCE_TOLERANCE) {
+							console.log("Advance t0 = t1.");
 
 							break pointCloudVsPlane;
-						}
+						} */
 
 						// Find root.
 						{
@@ -120,14 +120,18 @@ export class Integrator {
 							 * @param {Number} t
 							 */
 							function n(t) {
-								return new Vector2(plane.n).add(new Vector2(plane.lv).multiplyScalar(t));
+								// plane.linearVelocity * t + plane.normal
+								// return new Vector2(plane.lv).multiplyScalar(t).add(plane.n);
+								return plane.n;
 							}
 
 							/**
 							 * @param {Number} t
 							 */
 							function w(t) {
-								return plane.w + plane.av * t;
+								// plane.offset + plane.angularVelocity * t
+								// return plane.w + plane.av * t;
+								return plane.w;
 							}
 
 							/**
@@ -135,43 +139,21 @@ export class Integrator {
 							 */
 							function separation(t) {
 								const transform = polygon.at(t);
-								const p = new Vector2(deepestVertex).multiplyMatrix(transform);
+								const p = new Vector2(support.vertex).multiplyMatrix(transform);
 
 								return dot(n(t), p) - w(t);
 							}
 
 							// Perform root finding.
-							const root = bisection(separation);
-
-							t1 = root;
+							t1 = bisection(separation);
 						}
 					}
 
 					t0 = t1;
 				}
 
-				// debugger;
-
-				/* const velocityBound = calculateVelocityBound(a, b, gjk);
-
-				if (velocityBound === 0) {
-					continue;
-				}
-
-				let t = 0;
-				let d = Integrator.#computeDistance(a, b, t);
-
-				for (let i = 0; i < MAX_ITER && abs(d) > DISTANCE_TOLERANCE && t < 1; i++) {
-					const delta = abs(d) / velocityBound;
-
-					// t = min(1, t + delta);
-					t = t + delta;
-					d = Integrator.#computeDistance(a, b, t);
-				}
-
-				if (t < 1) {
-					// Collision has occurred
-				} */
+				updateObjectAtT(a, t0);
+				updateObjectAtT(b, t0);
 			}
 		}
 	}
@@ -226,22 +208,40 @@ export class Integrator {
  * @param {import("./index.js").Object} object
  * @param {Number} t
  */
-function advanceTime(object, t) {
-	const linearVelocity = new Vector2(object.linearVelocity).multiplyScalar(t);
-	const angularVelocity = object.angularVelocity * t;
+function getObjectAt(object, t) {
+	const copy = Object.copy(object);
 
-	const linearAcceleration = new Vector2(object.linearAcceleration).multiplyScalar(t);
-	const angularAcceleration = object.angularAcceleration * t;
+	const linearVelocity = new Vector2(copy.linearVelocity).multiplyScalar(t);
+	const angularVelocity = copy.angularVelocity * t;
 
-	object.position.add(linearVelocity);
+	const linearAcceleration = new Vector2(copy.linearAcceleration).multiplyScalar(t);
+	const angularAcceleration = copy.angularAcceleration * t;
+
+	copy.position.add(linearVelocity);
 
 	/**
 	 * @todo Rotate about center of mass, not position
 	 */
-	object.rotation += angularVelocity;
+	copy.rotation += angularVelocity;
 
-	object.linearVelocity.add(linearAcceleration);
-	object.angularVelocity += angularAcceleration;
+	copy.linearVelocity.add(linearAcceleration);
+	copy.angularVelocity += angularAcceleration;
+
+	copy.updateTransform();
+
+	return copy;
+}
+
+/**
+ * @param {import("./index.js").Object} object
+ * @param {Number} t
+ */
+function updateObjectAtT(object, t) {
+	object.position.add(new Vector2(object.linearVelocity).multiplyScalar(t));
+	object.rotation += object.angularVelocity * t;
+
+	object.linearVelocity.add(new Vector2(object.linearAcceleration).multiplyScalar(t));
+	object.angularVelocity += object.angularAcceleration * t;
 
 	object.updateTransform();
 }
@@ -270,36 +270,22 @@ function calculateVelocityBound(a, b, gjkResponse) {
 	return velocityBound;
 }
 
-
-
-
-
-
-
-
-
-
 /**
  * @param {import("./index.js").Object} a
  * @param {import("./index.js").Object} b
  * @param {Number} t
  */
 function getClosestFeatures(a, b, t) {
-	advanceTime(a, t);
-	advanceTime(b, t);
+	const aAtTimeT = getObjectAt(a, t);
+	const bAtTimeT = getObjectAt(b, t);
 
-	return GJK(a, b);
+	return GJK(aAtTimeT, bAtTimeT);
 }
 
-
-
-
-
-
-
-
-
 /**
+ * Debug function.
+ * Converts polygon/polygon case to plane/polygon case.
+ * 
  * @param {import("./index.js").Object} a
  * @param {import("./index.js").Object} b
  */
@@ -311,7 +297,7 @@ function ca(a, b) {
 	 */
 	let plane;
 
-	if (a.geometry.vertices.length === 2) {
+	if (a.label === "Plane") {
 		plane = {
 			n: new Vector2(0, 1),
 			w: a.position.y,
@@ -321,7 +307,7 @@ function ca(a, b) {
 		polygon = b;
 	}
 
-	if (b.geometry.vertices.length === 2) {
+	if (b.label === "Plane") {
 		plane = {
 			n: new Vector2(0, 1),
 			w: b.position.y,
@@ -338,17 +324,6 @@ function ca(a, b) {
 	return {polygon, plane};
 }
 
-
-
-
-
-
-
-
-
-
-
-
 /**
  * @typedef {Object} Plane
  * @property {import("./math/index.js").Vector2} n Normal
@@ -356,79 +331,6 @@ function ca(a, b) {
  * @property {import("./math/index.js").Vector2} lv Linear velocity
  * @property {Number} av Angular velocity
  */
-
-/**
- * @param {import("./index.js").Object} polygon
- * @param {Plane} plane
- */
-function findRootPointPlane(polygon, plane) {
-	/**
-	 * @param {import("./math/index.js").Vector2} p Point position
-	 * @param {Number} t
-	 */
-	function p(p, t) {
-		const transform = polygon.at(t);
-
-		return new Vector2(p).multiplyMatrix(transform);
-	}
-
-	/**
-	 * @param {Number} t
-	 */
-	function n(t) {
-		return new Vector2(plane.n).add(new Vector2(plane.lv).multiplyScalar(t));
-	}
-
-	/**
-	 * @param {Number} t
-	 */
-	function w(t) {
-		return plane.w + plane.av * t;
-	}
-
-	for (let i = 0; i < DEEPEST_POINT_MAX_ITERATIONS; i++) {
-		let maxDepth = Number.NEGATIVE_INFINITY;
-		let deepestPoint;
-		let belowPoints = [];
-
-		// Sample each polygon point at t1 to find the deepest point
-		// in the opposite direction from the plane normal.
-		for (let i = 0; i < polygon.geometry.vertices.length; i++) {
-			const vertex = polygon.geometry.vertices[i];
-			const point = p(vertex, 1);
-
-			const depth = dot(point, new Vector2(plane.n).negate());
-
-			if (depth < 0) {
-				belowPoints.push(point);
-			}
-
-			if (depth > maxDepth) {
-				maxDepth = depth;
-				deepestPoint = point;
-			}
-		}
-
-		if (belowPoints.length === 0) {
-			break;
-		}
-
-		// Create separation function with the deepest point.
-		/**
-		 * @param {Number} t
-		 */
-		function s(t) {
-			return dot(n(t), deepestPoint) - w(t);
-		}
-
-		// We know there is at least 1 root between 0 and 1.
-		// Perform root finding.
-		const toi = bisection(s);
-
-		// Advance safely by TOI amount.
-		advanceTime(polygon, toi);
-	}
-}
 
 /**
  * @param {(t: Number) => Number} separation

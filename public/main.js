@@ -1,5 +1,5 @@
 import {Application, Geometry, Material, Object, Scene} from "../src/index.js";
-import {Vector2} from "../src/math/index.js";
+import {radians, Vector2} from "../src/math/index.js";
 
 const application = new Application();
 
@@ -9,18 +9,19 @@ await application.initialize();
 
 const plane = new Object(
 	new Geometry([
-		new Vector2(-8, 0),
-		new Vector2(8, 0),
+		new Vector2(-6, 0),
+		new Vector2(6, 0),
 	]),
 	new Material({
 		fillColor: "#ffee8c20",
 		strokeColor: "#ffee8c50",
 	}),
 );
+plane.label = "Plane";
 plane.position.set(new Vector2(0, 0));
 plane.updateTransform();
 
-const cube1 = new Object(
+/* const cube1 = new Object(
 	new Geometry([
 		new Vector2(-1, 1),
 		new Vector2(1, 1),
@@ -32,32 +33,39 @@ const cube1 = new Object(
 		strokeColor: "#ffee8c50",
 	}),
 );
-cube1.position.set(new Vector2(0, 5));
-cube1.linearVelocity.set(new Vector2(0, -0.04));
+cube1.label = "Cube 1";
+cube1.position.set(new Vector2(0, 2));
+cube1.linearVelocity.set(new Vector2(0, 0));
 // cube1.angularVelocity = -0.004;
-cube1.updateTransform();
+cube1.updateTransform(); */
 
-const cube2 = new Object(
+const triangle = new Object(
 	new Geometry([
-		new Vector2(-1, 1),
-		new Vector2(1, 1),
-		new Vector2(1, -1),
-		new Vector2(-1, -1),
+		new Vector2(0, 0),
+		new Vector2(0, 1),
+		new Vector2(6, 0),
 	]),
 	new Material({
 		fillColor: "#ffee8c20",
 		strokeColor: "#ffee8c50",
 	}),
 );
-cube2.position.set(new Vector2(7, -4));
-cube2.linearVelocity.set(new Vector2(0, 0));
-// cube2.angularVelocity = -0.004;
-cube2.updateTransform();
+triangle.label = "Triangle";
+triangle.position.set(new Vector2(0, 2));
+triangle.rotation = radians(-30);
+triangle.angularVelocity = radians(70);
+// triangle.angularVelocity = radians(0.25);
+// triangle.linearVelocity = new Vector2(0, 0);
+
+// const toi = 0.787109375;
+// triangle.rotation += triangle.angularVelocity * toi;
+// triangle.angularVelocity = 0;
+
+triangle.updateTransform();
 
 const scene = new Scene([
 	plane,
-	cube1,
-	// cube2,
+	triangle,
 ]);
 
 application.setScene(scene);

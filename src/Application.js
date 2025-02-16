@@ -38,6 +38,8 @@ export class Application {
 
 	#timeSinceLastFrame = 0;
 
+	#frameIndex = 0;
+
 	/**
 	 * @type {?Number}
 	 */
@@ -133,10 +135,12 @@ export class Application {
 
 			this.stopLoop();
 		}
+
+		this.#frameIndex++;
 	}
 
 	#update() {
-		this.#integrator.update(this.#scene);
+		this.#integrator.update(this.#scene, this.#frameIndex);
 	}
 
 	#render() {

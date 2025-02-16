@@ -25,10 +25,10 @@ import {ClosestFeature} from "../src/ClosestFeature.js";
  * @property {import("../src/math/index.js").Vector2} closest1 Closest point on the closest feature on object 1
  * @property {import("../src/math/index.js").Vector2} closest2 Closest point on the closest feature on object 2
  * @property {Number} distance Distance between the closest points
- * @property {Boolean} intersecting
  * @property {Simplex} [simplex] Visualization purposes
  */
 
+const GJK_SILENT = true;
 const GJK_MAX_ITERATIONS = 8;
 
 // Max recorded = 4
@@ -95,14 +95,14 @@ export function GJK(M1, M2) {
 
 	getClosestFeaturesOnPolygons(response, S);
 	getClosestPointsOnPolygons(response, S);
-	getDistanceAndIntersecting(response, S);
+	getDistance(response, S);
 
-	if (response.closest1 && response.closest2) {
+	/* if (response.closest1 && response.closest2) {
 		response.closest1.multiplyMatrix(M1.transform);
 		response.closest2.multiplyMatrix(M2.transform);
-	}
+	} */
 
-	if (i > maxRecordedIterations) {
+	if (!GJK_SILENT && i > maxRecordedIterations) {
 		maxRecordedIterations = i;
 
 		console.warn("GJK max recorded iterations:", maxRecordedIterations);
@@ -325,17 +325,17 @@ function getClosestPointsOnPolygons(response, simplex) {
  * @param {GJKResponse} response
  * @param {Simplex} simplex
  */
-function getDistanceAndIntersecting(response, simplex) {
+function getDistance(response, simplex) {
 	switch (simplex.length) {
 		case 1:
 		case 2:
 			response.distance = distance(response.closest1, response.closest2);
-			response.intersecting = false;
+			// intersecting = false
 
 			break;
 		case 3:
 			response.distance = 0;
-			response.intersecting = true;
+			// intersecting = true
 
 			break;
 	}

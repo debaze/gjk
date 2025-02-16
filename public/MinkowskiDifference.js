@@ -6,6 +6,14 @@ import {negate, Vector2} from "../src/math/index.js";
  * @property {import("../src/math/index.js").Vector2} vertex (Already transformed)
  */
 
+/**
+ * @typedef {Object} SupportTime
+ * @property {Number} index
+ * @property {Number} t
+ * @property {import("../src/math/index.js").Vector2} vertex No transform applied
+ * @property {import("../src/math/index.js").Vector2} transformedVertex T transform applied
+ */
+
 export class MinkowskiDifference {
 	/**
 	 * @param {import("../src/index.js").Object} M1
