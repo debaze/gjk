@@ -51,6 +51,8 @@ export class Renderer {
 	 */
 	#scene = null;
 
+	#hoveredObjectIndex;
+
 	constructor() {
 		this.#canvas = document.createElement("canvas");
 		this.#context = this.#canvas.getContext("2d");
@@ -97,27 +99,19 @@ export class Renderer {
 		this.#renderDebugTooltip();
 	}
 
-	#clear() {
-		const w = this.#view.viewport.x;
-		const h = this.#view.viewport.y;
-
-		this.#context.fillStyle = Renderer.#BACKGROUND_COLOR;
-		this.#context.fillRect(-w * 0.5, -h * 0.5, w, h);
-	}
-
 	/**
 	 * @param {import("./index.js").Object} object
 	 * @param {Number} index
 	 */
 	#renderObject(object, index) {
-		const geometry = object.geometry;
-		const vertices = geometry.vertices;
-
 		this.#context.save();
+
+		this.#setTransform(object.transform);
+
 		this.#context.beginPath();
 
-		for (let i = 0; i < vertices.length; i++) {
-			const v = new Vector2(vertices[i]).multiplyMatrix(object.transform);
+		for (let i = 0; i < object.geometry.vertices.length; i++) {
+			const v = new Vector2(object.geometry.vertices[i]);
 
 			this.#context.lineTo(v.x, v.y);
 		}
@@ -127,29 +121,27 @@ export class Renderer {
 		/**
 		 * @todo Move into Application
 		 */
-		/* const mouse = new Vector2(this.#view.mouse).multiplyMatrix(this.#view.projection);
+		const mouse = new Vector2(this.#view.mouse).multiplyMatrix(this.#view.projection);
 		const isHovering = this.#context.isPointInPath(mouse.x, mouse.y);
-
-		if (isHovering) {
-			this.#hoveredObjectIndex = index;
-
-			this.#context.fillStyle = Renderer.#HOVER_FILL_COLOR;
-			this.#context.strokeStyle = Renderer.#HOVER_STROKE_COLOR;
-		}
-		else {
-			if (this.#hoveredObjectIndex === index) {
-				this.#hoveredObjectIndex = null;
-			}
-
-			this.#context.fillStyle = object.material.getFillColor();
-			this.#context.strokeStyle = object.material.getStrokeColor();
-		} */
 
 		this.#context.fillStyle = object.material.getFillColor();
 		this.#context.strokeStyle = object.material.getStrokeColor();
 
 		this.#context.fill();
 		this.#context.stroke();
+
+		if (isHovering) {
+			this.#hoveredObjectIndex = index;
+
+			this.#context.fillStyle = "#00000020";
+
+			this.#context.fill();
+		}
+		else {
+			if (this.#hoveredObjectIndex === index) {
+				this.#hoveredObjectIndex = null;
+			}
+		}
 
 		this.#context.restore();
 
@@ -186,7 +178,6 @@ export class Renderer {
 
 			if (response.closestFeature1) {
 				if (response.closestFeature1.isVertex) {
-					// point is already transformed
 					this.#renderPoint(response.closestFeature1.vertices[0], 0.075);
 				}
 				else if (response.closestFeature1.isEdge) {
@@ -213,7 +204,6 @@ export class Renderer {
 
 			if (response.closestFeature2) {
 				if (response.closestFeature2.isVertex) {
-					// point is already transformed
 					this.#renderPoint(response.closestFeature2.vertices[0], 0.075);
 				}
 				else if (response.closestFeature2.isEdge) {
@@ -239,16 +229,6 @@ export class Renderer {
 		}
 	}
 
-	/**
-	 * @param {import("./math/index.js").Vector2} P
-	 * @param {Number} [radius]
-	 */
-	#renderPoint(P, radius = 0.1) {
-		this.#context.beginPath();
-		this.#context.arc(P.x, P.y, radius, 0, pi * 2);
-		this.#context.fill();
-	}
-
 	#renderDebugTooltip() {
 		this.#context.fillStyle = Renderer.#DEBUG_TOOLTIP_BACKGROUND_COLOR;
 
@@ -269,6 +249,14 @@ export class Renderer {
 	}
 
 	/// Stable utilities ///
+
+	#clear() {
+		const w = this.#view.viewport.x;
+		const h = this.#view.viewport.y;
+
+		this.#context.fillStyle = Renderer.#BACKGROUND_COLOR;
+		this.#context.fillRect(-w * 0.5, -h * 0.5, w, h);
+	}
 
 	/**
 	 * @param {import("./Application.js").View} view
@@ -371,5 +359,15 @@ export class Renderer {
 		this.#context.stroke();
 
 		this.#context.restore();
+	}
+
+	/**
+	 * @param {import("./math/index.js").Vector2} P
+	 * @param {Number} [radius]
+	 */
+	#renderPoint(P, radius = 0.1) {
+		this.#context.beginPath();
+		this.#context.arc(P.x, P.y, radius, 0, pi * 2);
+		this.#context.fill();
 	}
 }

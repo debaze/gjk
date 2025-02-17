@@ -215,10 +215,10 @@ export class Object {
 	}
 
 	/**
-	 * @param {import("../src/math/index.js").Vector2} D
+	 * @param {import("../src/math/index.js").Vector2} d
 	 * @param {Number} t
 	 */
-	supportTime(D, t) {
+	supportTime(d, t) {
 		const transform = this.at(t);
 
 		/**
@@ -226,14 +226,12 @@ export class Object {
 		 */
 		const response = {};
 
-		const vertices = this.#geometry.vertices;
-
 		let maxAngle = Number.NEGATIVE_INFINITY;
 
-		for (let i = 0; i < vertices.length; i++) {
-			const vertex = vertices[i];
+		for (let i = 0; i < this.#geometry.vertices.length; i++) {
+			const vertex = this.#geometry.vertices[i];
 			const transformedVertex = new Vector2(vertex).multiplyMatrix(transform);
-			const angle = dot(transformedVertex, D);
+			const angle = dot(transformedVertex, d);
 
 			if (angle > maxAngle) {
 				response.index = i;

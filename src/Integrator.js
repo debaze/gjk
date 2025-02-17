@@ -1,5 +1,5 @@
-import {Object} from "./index.js";
-import {abs, dot, negate, Vector2} from "./math/index.js";
+import {ClosestFeature, Object} from "./index.js";
+import {abs, cross, dot, negate, Vector2} from "./math/index.js";
 
 import {GJK} from "../public/GJK.js";
 
@@ -91,32 +91,77 @@ export class Integrator {
 						break;
 					}
 
+					/**
+					 * @type {import("./index.js").Object}
+					 */
+					let polygonAsPlane;
+
+					/**
+					 * @type {import("./index.js").Object}
+					 */
+					let polygonAsPolygon;
+
+					/**
+					 * @type {ClosestFeature}
+					 */
 					let separatingPlane;
 
 					if (gjkResponse.closestFeature1.isEdge) {
-						separatingPlane = 1;
+						polygonAsPlane = a;
+						polygonAsPolygon = b;
+						separatingPlane = gjkResponse.closestFeature1;
 					}
 					else if (gjkResponse.closestFeature2.isEdge) {
-						separatingPlane = 2;
+						polygonAsPlane = b;
+						polygonAsPolygon = a;
+						separatingPlane = gjkResponse.closestFeature2;
 					}
-					/* else if (gjkResponse.closestFeature1.isVertex && gjkResponse.closestFeature2.isVertex) {
-						const a = gjkResponse.closestFeature1.vertices[0];
-						const b = gjkResponse.closestFeature2.vertices[0];
-						const ab = new Vector2(b).subtract(a).normalize();
-					} */
+					else if (gjkResponse.closestFeature1.isVertex && gjkResponse.closestFeature2.isVertex) {
+						throw new Error("todo: vertex vs. vertex");
+						// const a = gjkResponse.closestFeature1.vertices[0];
+						// const b = gjkResponse.closestFeature2.vertices[0];
+						// const ab = new Vector2(b).subtract(a).normalize();
+					}
+					else {
+						throw new Error("unhandled");
+					}
 
-					const {polygon, plane} = ca(a, b);
+					/**
+					 * @param {Number} t
+					 */
+					function n(t) {
+						let T = polygonAsPlane.at(t);
+
+						const a = new Vector2(separatingPlane.vertices[0]).multiplyMatrix(T);
+						const b = new Vector2(separatingPlane.vertices[1]).multiplyMatrix(T);
+						const ab = new Vector2(b).subtract(a);
+
+						if (dot(ab, polygonAsPlane.geometry.centerOfMass) > 0) {
+							return new Vector2(-ab.y, ab.x).normalize();
+						}
+						else {
+							return new Vector2(ab.y, -ab.x).normalize();
+						}
+					}
+
+					/**
+					 * @param {Number} t
+					 */
+					function w(t) {
+						return polygonAsPlane.position.y - polygonAsPlane.geometry.centerOfMass.y;
+					}
 
 					t1 = 1;
 
 					// Point cloud vs. plane
 					pointCloudVsPlane: for (let l = 0; l < POINT_CLOUD_VS_PLANE_MAX_ITERATIONS; l++) {
-						const deepestPoint = polygon.supportTime(negate(plane.n), t1);
-						const d = dot(deepestPoint.transformedVertex, plane.n);
+						const normal = n(t1);
+						const deepestPoint = polygonAsPolygon.supportTime(negate(normal), t1);
+						const s = dot(deepestPoint.transformedVertex, normal);
 
 						// console.log(k, l, t1, d);
 
-						if (d > DISTANCE_TOLERANCE) {
+						if (s > DISTANCE_TOLERANCE) {
 							t0 = t1;
 
 							console.info("No collision");
@@ -124,33 +169,17 @@ export class Integrator {
 							break closestFeature;
 						}
 
-						if (d > -DISTANCE_TOLERANCE) {
+						if (s > -DISTANCE_TOLERANCE) {
 							break pointCloudVsPlane;
 						}
 
 						/**
 						 * @param {Number} t
 						 */
-						function n(t) {
-							// plane.linearVelocity * t + plane.normal
-							return plane.n;
-						}
-
-						/**
-						 * @param {Number} t
-						 */
-						function w(t) {
-							// plane.offset + plane.angularVelocity * t
-							return plane.w;
-						}
-
-						/**
-						 * @param {Number} t
-						 */
 						function p(t) {
-							const T = polygon.at(t);
+							const T = polygonAsPolygon.at(t);
 
-							return new Vector2(polygon.geometry.vertices[deepestPoint.index]).multiplyMatrix(T);
+							return new Vector2(polygonAsPolygon.geometry.vertices[deepestPoint.index]).multiplyMatrix(T);
 						}
 
 						/**
@@ -160,9 +189,7 @@ export class Integrator {
 							return dot(n(t), p(t)) - w(t);
 						}
 
-						const root = bisection(separation);
-
-						t1 = root;
+						t1 = bisection(separation);
 					}
 
 					t0 = t1;
@@ -247,30 +274,6 @@ function updateObjectAtT(object, t) {
 }
 
 /**
- * @todo Fix case when dot product cancels relativeVelocity and d
- * (e.g. one is 1, 0 and the other is 0, 1).
- * 
- * @param {import("./index.js").Object} a
- * @param {import("./index.js").Object} b
- * @param {import("../public/GJK.js").GJKResponse} gjkResponse
- */
-function calculateVelocityBound(a, b, gjkResponse) {
-	// (vB - vA) · (d / ||d||) + ||wA|| * rA + ||wB|| * rB
-	const relativeVelocity = new Vector2(b.linearVelocity).subtract(a.linearVelocity);
-	const d = new Vector2(gjkResponse.closest2).subtract(gjkResponse.closest1);
-	d.divideScalar(d.magnitude());
-
-	let velocityBound = dot(relativeVelocity, d);
-	velocityBound += a.angularVelocity * a.geometry.radius + b.angularVelocity * b.geometry.radius;
-
-	if (velocityBound === 0) {
-		debugger;
-	}
-
-	return velocityBound;
-}
-
-/**
  * @param {import("./index.js").Object} a
  * @param {import("./index.js").Object} b
  * @param {Number} t
@@ -280,48 +283,6 @@ function getClosestFeatures(a, b, t) {
 	const bAtTimeT = getObjectAt(b, t);
 
 	return GJK(aAtTimeT, bAtTimeT);
-}
-
-/**
- * Debug function.
- * Converts polygon/polygon case to plane/polygon case.
- * 
- * @param {import("./index.js").Object} a
- * @param {import("./index.js").Object} b
- */
-function ca(a, b) {
-	let polygon;
-
-	/**
-	 * @type {Plane}
-	 */
-	let plane;
-
-	if (a.label === "Plane") {
-		plane = {
-			n: new Vector2(0, 1),
-			w: a.position.y - a.geometry.centerOfMass.y,
-			av: a.angularVelocity,
-			lv: a.linearVelocity,
-		};
-		polygon = b;
-	}
-
-	if (b.label === "Plane") {
-		plane = {
-			n: new Vector2(0, 1),
-			w: b.position.y - b.geometry.centerOfMass.y,
-			av: b.angularVelocity,
-			lv: b.linearVelocity,
-		};
-		polygon = a;
-	}
-
-	if (!polygon || !plane) {
-		throw new Error("Could not convert polygon/polygon to plane/polygon.");
-	}
-
-	return {polygon, plane};
 }
 
 /**
