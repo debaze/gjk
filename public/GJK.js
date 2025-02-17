@@ -25,8 +25,7 @@ import {ClosestFeature} from "../src/ClosestFeature.js";
  * @property {Simplex} [simplex] Visualization purposes
  */
 
-const GJK_SILENT = false;
-const GJK_MAX_ITERATIONS = 8;
+const GJK_MAX_ITERATIONS = 3;
 
 let maxRecordedIterations = 0;
 
@@ -93,6 +92,7 @@ export function GJK(M1, M2) {
 
 	// D = COM(M2) - COM(M1)
 	// const D = new Vector2(M2.geometry.centerOfMass).subtract(M1.geometry.centerOfMass);
+	// const A = MinkowskiDifference.support(M1, M2, D);
 
 	const S = new Simplex();
 	// @ts-ignore
@@ -109,7 +109,7 @@ export function GJK(M1, M2) {
 
 	let i = 0;
 
-	loop: for (; i < GJK_MAX_ITERATIONS; i++) {
+	loop: for (; i <= GJK_MAX_ITERATIONS; i++) {
 		const save1 = [], save2 = [];
 		const saveCount = S.length;
 
@@ -134,7 +134,7 @@ export function GJK(M1, M2) {
 				assert(false);
 		}
 
-		// If we have 3 points, then the origin is in the corresponding triangle.
+		// If we still have 3 points, then the origin is in the corresponding triangle.
 		if (S.length === 3) {
 			break loop;
 		}
@@ -142,7 +142,7 @@ export function GJK(M1, M2) {
 		const D = S.getSearchDirection();
 
 		if (D.x === 0 && D.y === 0) {
-			console.warn("Search direction is 0 (vertex overlap).");
+			console.warn("[GJK]: Search direction is 0 (vertex overlap).");
 
 			break loop;
 		}
@@ -156,12 +156,16 @@ export function GJK(M1, M2) {
 		}
 
 		S.push(P);
+
+		if (i == GJK_MAX_ITERATIONS) {
+			console.warn("[GJK]: Iteration limit reached.");
+		}
 	}
 
-	if (!GJK_SILENT && i > maxRecordedIterations) {
+	if (i > maxRecordedIterations) {
 		maxRecordedIterations = i;
 
-		console.warn("GJK max recorded iterations:", maxRecordedIterations);
+		console.warn("[GJK]: Max recorded iteration count", maxRecordedIterations);
 	}
 
 	response.simplex = S;
