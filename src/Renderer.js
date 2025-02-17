@@ -1,4 +1,4 @@
-import {pi, Vector2} from "./math/index.js";
+import {Matrix3, pi, transpose, Vector2} from "./math/index.js";
 
 export class Renderer {
 	static #INTERSECTION_EDGE_COLOR = "#ff746c";
@@ -8,7 +8,7 @@ export class Renderer {
 	static #COLLISION_COLOR = "#670066";
 
 	// Background
-	static #BACKGROUND_COLOR = "#111111";
+	static #BACKGROUND_COLOR = "#111";
 
 	// Grid
 	static #GRID_COLUMN_GAP = 1;
@@ -41,6 +41,8 @@ export class Renderer {
 	 * @type {?import("./Application.js").View}
 	 */
 	#view = null;
+
+	#transform = Matrix3.identity();
 
 	#debugTooltipSize = new Vector2(Renderer.#DEBUG_TOOLTIP_SIZE);
 
@@ -163,82 +165,63 @@ export class Renderer {
 		// Draw simplex on the shapes.
 		if (response.simplex) {
 			const simplex = response.simplex;
-			const p0 = response.object1.geometry.vertices[simplex[0].index1];
 
 			this.#context.fillStyle = Renderer.#SIMPLEX_FILL_COLOR;
 			this.#context.strokeStyle = Renderer.#SIMPLEX_STROKE_COLOR;
 
-			this.#context.save();
-			this.#context.translate(response.object1.position.x, response.object1.position.y);
-			this.#context.rotate(-response.object1.rotation);
-			this.#context.scale(response.object1.scale.x, response.object1.scale.y);
-			this.#context.beginPath();
-			// this.#context.arc(p0.x, p0.y, 0.1, 0, pi * 2);
-			this.#context.moveTo(p0.x, p0.y);
+			{
+				this.#context.save();
 
-			/* for (let i = 1; i < simplex.length; i++) {
-				const p = response.object1.geometry.vertices[simplex[i].index1];
+				const P0 = response.object1.geometry.vertices[simplex[0].index1];
 
-				this.#context.lineTo(p.x, p.y);
-				// this.#context.moveTo(p.x, p.y);
-				// this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
-				// this.#context.moveTo(p.x, p.y);
-			} */
+				this.#setTransform(response.object1.transform);
 
-			this.#context.lineTo(p0.x, p0.y);
-			this.#context.stroke();
-			this.#context.fill();
-			this.#context.restore();
+				this.#context.beginPath();
+				this.#context.moveTo(P0.x, P0.y);
 
-			this.#context.save();
+				for (let i = 1; i < simplex.length; i++) {
+					const P = response.object1.geometry.vertices[simplex[i].index1];
 
-			this.#context.translate(response.object2.position.x, response.object2.position.y);
-			this.#context.rotate(-response.object2.rotation);
-			this.#context.scale(response.object2.scale.x, response.object2.scale.y);
+					this.#context.lineTo(P.x, P.y);
+				}
 
-			const p01 = response.object2.geometry.vertices[simplex[0].index2];
+				this.#context.lineTo(P0.x, P0.y);
+				this.#context.stroke();
+				this.#context.fill();
+				this.#context.restore();
+			}
 
-			this.#context.beginPath();
-			// this.#context.arc(p01.x, p01.y, 0.1, 0, pi * 2);
-			this.#context.moveTo(p01.x, p01.y);
+			{
+				this.#context.save();
 
-			/* for (let i = 1; i < simplex.length; i++) {
-				const p = response.object2.geometry.vertices[simplex[i].index2];
+				const P0 = response.object2.geometry.vertices[simplex[0].index2];
 
-				this.#context.lineTo(p.x, p.y);
-				// this.#context.moveTo(p.x, p.y);
-				// this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
-				// this.#context.moveTo(p.x, p.y);
-			} */
+				this.#setTransform(response.object2.transform);
 
-			this.#context.lineTo(p01.x, p01.y);
-			this.#context.fill();
-			this.#context.stroke();
-			this.#context.restore();
+				this.#context.beginPath();
+				this.#context.moveTo(P0.x, P0.y);
+
+				for (let i = 1; i < simplex.length; i++) {
+					const P = response.object2.geometry.vertices[simplex[i].index2];
+	
+					this.#context.lineTo(P.x, P.y);
+				}
+
+				this.#context.lineTo(P0.x, P0.y);
+				this.#context.fill();
+				this.#context.stroke();
+				this.#context.restore();
+			}
 		}
 
 		// Draw closest point on shape 1.
 		if (response.closest1) {
-			const p1 = response.closest1;
-
-			this.#context.fillStyle = Renderer.#HOVER_FILL_COLOR;
-			this.#context.strokeStyle = Renderer.#HOVER_STROKE_COLOR;
-			this.#context.beginPath();
-			this.#context.arc(p1.x, p1.y, 0.1, 0, pi * 2);
-			this.#context.fill();
-			this.#context.stroke();
+			this.#renderPoint(response.closest1);
 		}
 
 		// Draw closest point on shape 2.
 		if (response.closest2) {
-			const p2 = response.closest2;
-
-			this.#context.fillStyle = Renderer.#HOVER_FILL_COLOR;
-			this.#context.strokeStyle = Renderer.#HOVER_STROKE_COLOR;
-			this.#context.beginPath();
-			this.#context.arc(p2.x, p2.y, 0.1, 0, pi * 2);
-			this.#context.fill();
-			this.#context.stroke();
+			this.#renderPoint(response.closest2);
 		}
 
 		if (response.closest1 && response.closest2) {
@@ -251,6 +234,18 @@ export class Renderer {
 			this.#context.lineTo(p2.x, p2.y);
 			this.#context.stroke();
 		}
+	}
+
+	/**
+	 * @param {import("./math/index.js").Vector2} p
+	 */
+	#renderPoint(p) {
+		this.#context.fillStyle = Renderer.#HOVER_FILL_COLOR;
+		this.#context.strokeStyle = Renderer.#HOVER_STROKE_COLOR;
+		this.#context.beginPath();
+		this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
+		this.#context.fill();
+		this.#context.stroke();
 	}
 
 	#renderDebug() {
@@ -285,11 +280,39 @@ export class Renderer {
 		this.#canvas.width = this.#view.viewport.x;
 		this.#canvas.height = this.#view.viewport.y;
 
-		this.#context.setTransform(this.#view.projection[0], 0, 0, this.#view.projection[4], this.#view.projection[6], this.#view.projection[7]);
+		const P = transpose(this.#view.projection);
+
+		this.#context.setTransform({
+			a: P[0],
+			b: P[3],
+			c: P[1],
+			d: P[4],
+			e: P[2],
+			f: P[5],
+		});
+
 		this.#context.lineWidth = 1 / this.#view.zoomLevel;
 	}
 
 	/// Stable utilities ///
+
+	/**
+	 * @param {import("./math/index.js").Matrix3} T
+	 */
+	#setTransform(T) {
+		this.#transform.set(T);
+
+		const TP = transpose(new Matrix3(this.#view.projection).multiply(this.#transform));
+
+		this.#context.setTransform({
+			a: TP[0],
+			b: TP[3],
+			c: TP[1],
+			d: TP[4],
+			e: TP[2],
+			f: TP[5],
+		});
+	}
 
 	#renderGrid() {
 		const w = this.#view.viewport.x;
@@ -339,22 +362,23 @@ export class Renderer {
 	 * @param {import("./index.js").Object} object
 	 */
 	#renderCenterOfMass(object) {
+		const C = object.geometry.centerOfMass;
+
 		this.#context.save();
 
 		this.#context.fillStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
 		this.#context.strokeStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
 
-		this.#context.translate(object.position.x, object.position.y);
-		this.#context.scale(object.scale.x, object.scale.y);
+		this.#setTransform(object.transform);
 
 		this.#context.beginPath();
-		this.#context.arc(0, 0, 0.2, 0, pi * 2);
+		this.#context.arc(C.x, C.y, 0.2, 0, pi * 2);
 		this.#context.stroke();
 		this.#context.clip();
 
 		this.#context.beginPath();
-		this.#context.rect(0, 0, -1, 1);
-		this.#context.rect(0, 0, 1, -1);
+		this.#context.rect(C.x, C.y, -1, 1);
+		this.#context.rect(C.x, C.y, 1, -1);
 		this.#context.fill();
 		this.#context.stroke();
 

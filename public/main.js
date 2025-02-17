@@ -54,10 +54,10 @@ const triangle = new Object(
 	}),
 );
 triangle.label = "Triangle";
-triangle.position.set(new Vector2(0, 2));
-triangle.rotation = radians(-30);
-triangle.angularVelocity = radians(70);
-// triangle.angularVelocity = radians(0.25);
+triangle.position.set(new Vector2(0, 5));
+// triangle.rotation = radians(-30);
+// triangle.angularVelocity = radians(70);
+triangle.angularVelocity = radians(0.25);
 // triangle.linearVelocity = new Vector2(0, 0);
 
 // const toi = 0.787109375;

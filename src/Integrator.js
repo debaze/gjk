@@ -44,18 +44,14 @@ export class Integrator {
 	 */
 	#integrate(objects, frameIndex) {
 		// Standard update
-		/* {
+		{
 			for (let i = 0; i < objects.length; i++) {
 				const a = objects[i];
 
-				updateObject(a);
+				updateObjectAtT(a, 1);
 			}
 
 			return;
-		} */
-
-		if (frameIndex !== 0) {
-			// return;
 		}
 
 		for (let i = 0; i < objects.length - 1; i++) {

@@ -1,5 +1,5 @@
 import {MinkowskiDifference} from "./MinkowskiDifference.js";
-import {cross, distance, dot, length, negate, Vector2} from "../src/math/index.js";
+import {cross, distance, dot, negate, Vector2} from "../src/math/index.js";
 import {ClosestFeature} from "../src/ClosestFeature.js";
 
 /**
@@ -24,12 +24,23 @@ import {ClosestFeature} from "../src/ClosestFeature.js";
  * @property {Simplex} [simplex] Visualization purposes
  */
 
-const GJK_SILENT = true;
+const GJK_SILENT = false;
 const GJK_MAX_ITERATIONS = 8;
 
-// Max recorded = 4
 let maxRecordedIterations = 0;
 
+/**
+ * @param {Boolean} condition
+ */
+function assert(condition) {
+	if (!condition) {
+		throw new Error("Assertion failed");
+	}
+}
+
+/**
+ * @extends {Array<SimplexVertex>}
+ */
 class Simplex extends Array {
 	divisor = 1;
 
@@ -49,7 +60,9 @@ class Simplex extends Array {
 				}
 			}
 			default:
-				throw new Error("Invalid simplex.");
+				assert(false);
+
+				return new Vector2(0, 0);
 		}
 	}
 
@@ -78,16 +91,31 @@ export function GJK(M1, M2) {
 	response.object2 = M2;
 
 	// D = COM(M2) - COM(M1)
-	const D = new Vector2(M2.geometry.centerOfMass).subtract(M1.geometry.centerOfMass);
-	const A = MinkowskiDifference.support(M1, M2, D);
+	// const D = new Vector2(M2.geometry.centerOfMass).subtract(M1.geometry.centerOfMass);
 
 	const S = new Simplex();
-	S.push(A);
+	// @ts-ignore
+	S.push({});
+	S[0].index1 = 0;
+	S[0].index2 = 0;
+	const p1 = M1.geometry.vertices[S[0].index1];
+	const p2 = M2.geometry.vertices[S[0].index2];
+	S[0].vertex1 = new Vector2(p1).multiplyMatrix(M1.transform);
+	S[0].vertex2 = new Vector2(p2).multiplyMatrix(M2.transform);
+	S[0].vertex = new Vector2(S[0].vertex2).subtract(S[0].vertex1);
+	S[0].u = 1;
+	S.length = 1;
 
 	let i = 0;
 
 	loop: for (; i < GJK_MAX_ITERATIONS; i++) {
-		const SCopy = S.copy();
+		const save1 = [], save2 = [];
+		const saveCount = S.length;
+
+		for (let i = 0; i < saveCount; i++) {
+			save1[i] = S[i].index1;
+			save2[i] = S[i].index2;
+		}
 
 		// Determine the closest point on the simplex and remove unused vertices.
 		switch (S.length) {
@@ -101,26 +129,27 @@ export function GJK(M1, M2) {
 				ClosestPointTriangle(S, new Vector2(0, 0));
 
 				break;
+			default:
+				assert(false);
 		}
 
 		// If we have 3 points, then the origin is in the corresponding triangle.
 		if (S.length === 3) {
-			break;
+			break loop;
 		}
 
-		// D ~= (0, 0) - P
-		D.set(S.getSearchDirection());
+		const D = S.getSearchDirection();
 
 		if (D.x === 0 && D.y === 0) {
 			console.warn("Search direction is 0 (vertex overlap).");
 
-			break;
+			break loop;
 		}
 
 		const P = MinkowskiDifference.support(M1, M2, D);
 
-		for (let i = 0; i < SCopy.length; i++) {
-			if (P.index1 === SCopy[i].index1 && P.index2 === SCopy[i].index2) {
+		for (let i = 0; i < saveCount; i++) {
+			if (P.index1 === save1[i] && P.index2 === save2[i]) {
 				break loop;
 			}
 		}
@@ -136,8 +165,8 @@ export function GJK(M1, M2) {
 
 	response.simplex = S;
 
-	getClosestFeaturesOnPolygons(response, S);
 	getClosestPointsOnPolygons(response, S);
+	getClosestFeaturesOnPolygons(response, S);
 
 	response.distance = distance(response.closest1, response.closest2);
 
@@ -172,12 +201,12 @@ export function ClosestPointTriangle(simplex, p) {
 	const pb = new Vector2(b).subtract(p);
 	const pc = new Vector2(c).subtract(p);
 
-	let uAB = bp.dot(ba);
-	let vAB = ap.dot(ab);
-	let uBC = cp.dot(cb);
-	let vBC = bp.dot(bc);
-	let uCA = ap.dot(ac);
-	let vCA = cp.dot(ca);
+	let uAB = dot(bp, ba);
+	let vAB = dot(ap, ab);
+	let uBC = dot(cp, cb);
+	let vBC = dot(bp, bc);
+	let uCA = dot(ap, ac);
+	let vCA = dot(cp, ca);
 
 	if (vAB <= 0 && uCA <= 0) {
 		// In region A.
@@ -230,6 +259,7 @@ export function ClosestPointTriangle(simplex, p) {
 		// In region BC.
 		simplex[0] = simplex[1];
 		simplex[1] = simplex[2];
+
 		simplex[0].u = uBC;
 		simplex[1].u = vBC;
 		simplex.divisor = dot(bc, bc);
@@ -242,6 +272,7 @@ export function ClosestPointTriangle(simplex, p) {
 		// In region CA.
 		simplex[1] = simplex[0];
 		simplex[0] = simplex[2];
+
 		simplex[0].u = uCA;
 		simplex[1].u = vCA;
 		simplex.divisor = dot(ca, ca);
@@ -251,9 +282,7 @@ export function ClosestPointTriangle(simplex, p) {
 	}
 
 	// In region ABC.
-	if (uABC > 0 && vABC > 0 && wABC > 0) {
-		throw new Error();
-	}
+	assert(uABC > 0 && vABC > 0 && wABC > 0);
 
 	simplex[0].u = uABC;
 	simplex[1].u = vABC;
@@ -314,15 +343,17 @@ function getClosestPointsOnPolygons(response, simplex) {
 
 			break;
 		case 2:
-			response.closest1 = new Vector2(simplex[0].vertex1).multiplyScalar(simplex[0].u * s).add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u * s));
-			response.closest2 = new Vector2(simplex[0].vertex2).multiplyScalar(simplex[0].u * s).add(new Vector2(simplex[1].vertex2).multiplyScalar(simplex[1].u * s));
+			response.closest1 = new Vector2(simplex[0].vertex1).multiplyScalar(simplex[0].u * s)
+				.add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u * s));
+			response.closest2 = new Vector2(simplex[0].vertex2).multiplyScalar(simplex[0].u * s)
+				.add(new Vector2(simplex[1].vertex2).multiplyScalar(simplex[1].u * s));
 
 			break;
 		case 3:
 			response.closest1 = new Vector2(simplex[0].vertex1).multiplyScalar(simplex[0].u * s)
 				.add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u * s))
 				.add(new Vector2(simplex[2].vertex1).multiplyScalar(simplex[2].u * s));
-			response.closest2 = response.closest1;
+			response.closest2 = new Vector2(response.closest1);
 
 			break;
 	}

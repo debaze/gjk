@@ -202,6 +202,28 @@ export class Object {
 	}
 
 	/**
+	 * Returns the index of the point furthest in the direction of d.
+	 * No transformation applied.
+	 * 
+	 * @param {import("../src/math/index.js").Vector2} d
+	 */
+	supportBase(d) {
+		let maxIndex = 0;
+		let maxValue = dot(this.#geometry.vertices[maxIndex], d);
+
+		for (let i = 1; i < this.#geometry.vertices.length; i++) {
+			let value = dot(this.#geometry.vertices[i], d);
+
+			if (value > maxValue) {
+				maxIndex = i;
+				maxValue = value;
+			}
+		}
+
+		return maxIndex;
+	}
+
+	/**
 	 * @param {import("../src/math/index.js").Vector2} D
 	 * @param {Number} t
 	 */
