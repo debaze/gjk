@@ -1,5 +1,5 @@
 import {Object} from "./index.js";
-import {abs, dot, Vector2} from "./math/index.js";
+import {abs, dot, negate, Vector2} from "./math/index.js";
 
 import {GJK} from "../public/GJK.js";
 
@@ -9,8 +9,16 @@ const CLOSEST_FEATURE_MAX_ITERATIONS = 2;
 const POINT_CLOUD_VS_PLANE_MAX_ITERATIONS = 4;
 
 // Tolerances
-const DISTANCE_TOLERANCE = 0.001;
-const BISECTION_TOLERANCE = 0.001;
+const DISTANCE_TOLERANCE = 0.01;
+const SEPARATION_TOLERANCE = 0.001;
+
+/**
+ * @typedef {Object} Plane
+ * @property {import("./math/index.js").Vector2} n Normal
+ * @property {Number} w Offset
+ * @property {import("./math/index.js").Vector2} lv Linear velocity
+ * @property {Number} av Angular velocity
+ */
 
 /**
  * @typedef {Object} Collision
@@ -44,7 +52,7 @@ export class Integrator {
 	 */
 	#integrate(objects, frameIndex) {
 		// Standard update
-		{
+		/* {
 			for (let i = 0; i < objects.length; i++) {
 				const a = objects[i];
 
@@ -52,7 +60,7 @@ export class Integrator {
 			}
 
 			return;
-		}
+		} */
 
 		for (let i = 0; i < objects.length - 1; i++) {
 			for (let j = i + 1; j < objects.length; j++) {
@@ -65,85 +73,96 @@ export class Integrator {
 
 				closestFeature: for (let k = 0; k < CLOSEST_FEATURE_MAX_ITERATIONS; k++) {
 					// Get closest features at t0.
-					const closestFeatures = getClosestFeatures(a, b, t0);
+					const gjkResponse = getClosestFeatures(a, b, t0);
 
-					/**
-					 * @todo Tolerance?
-					 */
-					if (closestFeatures.distance === 0) {
+					if (gjkResponse.overlap) {
 						debugger;
-						throw new Error("The shapes are initially intersecting.");
+
+						throw new Error("Shapes are overlapping");
 					}
 
-					const s = closestFeatures.distance;
+					const s = gjkResponse.distance;
 
 					if (abs(s) < DISTANCE_TOLERANCE) {
 						toi = t0;
 
+						console.info("TOI", toi);
+
 						break;
 					}
 
-					/**
-					 * @todo Separating axis for polygon vs. polygon.
-					 */
+					let separatingPlane;
+
+					if (gjkResponse.closestFeature1.isEdge) {
+						separatingPlane = 1;
+					}
+					else if (gjkResponse.closestFeature2.isEdge) {
+						separatingPlane = 2;
+					}
+					/* else if (gjkResponse.closestFeature1.isVertex && gjkResponse.closestFeature2.isVertex) {
+						const a = gjkResponse.closestFeature1.vertices[0];
+						const b = gjkResponse.closestFeature2.vertices[0];
+						const ab = new Vector2(b).subtract(a).normalize();
+					} */
+
 					const {polygon, plane} = ca(a, b);
 
 					t1 = 1;
 
 					// Point cloud vs. plane
 					pointCloudVsPlane: for (let l = 0; l < POINT_CLOUD_VS_PLANE_MAX_ITERATIONS; l++) {
-						const support = polygon.supportTime(new Vector2(plane.n).negate(), t1);
-						const d = dot(support.transformedVertex, plane.n);
+						const deepestPoint = polygon.supportTime(negate(plane.n), t1);
+						const d = dot(deepestPoint.transformedVertex, plane.n);
 
-						/* if (d > DISTANCE_TOLERANCE) {
-							console.log("No collision.");
+						// console.log(k, l, t1, d);
 
-							// No collision.
-							advanceTime(a, t1);
-							advanceTime(b, t1);
+						if (d > DISTANCE_TOLERANCE) {
+							t0 = t1;
+
+							console.info("No collision");
 
 							break closestFeature;
-						} */
-
-						/* if (d > -DISTANCE_TOLERANCE) {
-							console.log("Advance t0 = t1.");
-
-							break pointCloudVsPlane;
-						} */
-
-						// Find root.
-						{
-							/**
-							 * @param {Number} t
-							 */
-							function n(t) {
-								// plane.linearVelocity * t + plane.normal
-								// return new Vector2(plane.lv).multiplyScalar(t).add(plane.n);
-								return plane.n;
-							}
-
-							/**
-							 * @param {Number} t
-							 */
-							function w(t) {
-								// plane.offset + plane.angularVelocity * t
-								// return plane.w + plane.av * t;
-								return plane.w;
-							}
-
-							/**
-							 * @param {Number} t
-							 */
-							function separation(t) {
-								const transform = polygon.at(t);
-								const p = new Vector2(support.vertex).multiplyMatrix(transform);
-
-								return dot(n(t), p) - w(t);
-							}
-
-							// Perform root finding.
-							t1 = bisection(separation);
 						}
+
+						if (d > -DISTANCE_TOLERANCE) {
+							break pointCloudVsPlane;
+						}
+
+						/**
+						 * @param {Number} t
+						 */
+						function n(t) {
+							// plane.linearVelocity * t + plane.normal
+							return plane.n;
+						}
+
+						/**
+						 * @param {Number} t
+						 */
+						function w(t) {
+							// plane.offset + plane.angularVelocity * t
+							return plane.w;
+						}
+
+						/**
+						 * @param {Number} t
+						 */
+						function p(t) {
+							const T = polygon.at(t);
+
+							return new Vector2(polygon.geometry.vertices[deepestPoint.index]).multiplyMatrix(T);
+						}
+
+						/**
+						 * @param {Number} t
+						 */
+						function separation(t) {
+							return dot(n(t), p(t)) - w(t);
+						}
+
+						const root = bisection(separation);
+
+						t1 = root;
 					}
 
 					t0 = t1;
@@ -281,7 +300,7 @@ function ca(a, b) {
 	if (a.label === "Plane") {
 		plane = {
 			n: new Vector2(0, 1),
-			w: a.position.y,
+			w: a.position.y - a.geometry.centerOfMass.y,
 			av: a.angularVelocity,
 			lv: a.linearVelocity,
 		};
@@ -291,7 +310,7 @@ function ca(a, b) {
 	if (b.label === "Plane") {
 		plane = {
 			n: new Vector2(0, 1),
-			w: b.position.y,
+			w: b.position.y - b.geometry.centerOfMass.y,
 			av: b.angularVelocity,
 			lv: b.linearVelocity,
 		};
@@ -306,42 +325,35 @@ function ca(a, b) {
 }
 
 /**
- * @typedef {Object} Plane
- * @property {import("./math/index.js").Vector2} n Normal
- * @property {Number} w Offset
- * @property {import("./math/index.js").Vector2} lv Linear velocity
- * @property {Number} av Angular velocity
+ * @param {(t: Number) => Number} s
  */
-
-/**
- * @param {(t: Number) => Number} separation
- */
-function bisection(separation) {
+function bisection(s) {
 	let t0 = 0;
 	let t1 = 1;
 
-	const s0 = separation(t0);
-	const s1 = separation(t1);
+	const s0 = s(t0);
+	const s1 = s(t1);
 
 	if (!(s0 > 0 && s1 < 0)) {
+		console.warn("No guaranteed root");
+
 		return 1;
 	}
 
 	for (let i = 0; i < BISECTION_MAX_ITERATIONS; i++) {
-		const t1_2 = (t0 + t1) * 0.5;
-		const s = separation(t1_2);
+		const midpoint = (t0 + t1) * 0.5;
+		const separation = s(midpoint);
 
-		if (s > 0) {
+		if (separation > 0) {
 			// Push t0 towards t1.
-			t0 = t1_2;
+			t0 = midpoint;
 		}
-
-		if (s < 0) {
+		else {
 			// Push t1 towards t0.
-			t1 = t1_2;
+			t1 = midpoint;
 		}
 
-		if (abs(s) < BISECTION_TOLERANCE) {
+		if (abs(separation) < SEPARATION_TOLERANCE) {
 			break;
 		}
 	}

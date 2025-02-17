@@ -1,34 +1,34 @@
 import {Matrix3, pi, transpose, Vector2} from "./math/index.js";
 
 export class Renderer {
-	static #INTERSECTION_EDGE_COLOR = "#ff746c";
-	static #INTERSECTION_BACKGROUND_COLOR = "#ff746c45";
-	static #SIMPLEX_FILL_COLOR = "#ff980020";
-	static #SIMPLEX_STROKE_COLOR = "#ff980050";
-	static #COLLISION_COLOR = "#670066";
+	// static #INTERSECTION_EDGE_COLOR = "#ff746c";
+	// static #INTERSECTION_BACKGROUND_COLOR = "#ff746c45";
+	// static #COLLISION_COLOR = "#670066";
 
 	// Background
-	static #BACKGROUND_COLOR = "#111";
+	static #BACKGROUND_COLOR = "#ffffff";
 
 	// Grid
 	static #GRID_COLUMN_GAP = 1;
 	static #GRID_ROW_GAP = 1;
-	static #GRID_COLOR = "#222222";
+	static #GRID_COLOR = "#dddddd";
 
 	// Axes
-	static #AXIS_COLOR = "#333333";
+	static #AXIS_COLOR = "#bbbbbb";
 
 	// Geometry
-	static #CENTER_OF_MASS_STROKE_COLOR = "#000000";
+	static #CENTER_OF_MASS_RADIUS = 0.15;
+	static #CENTER_OF_MASS_COLOR = "#000000";
+	static #DISTANCE_COLOR = "#8d8d8c";
 
 	// Hovering
 	static #HOVER_FILL_COLOR = "#273ea520";
 	static #HOVER_STROKE_COLOR = "#273ea550";
 
 	// Debug
-	static #DEBUG_TOOLTIP_MARGIN = new Vector2(8, 8);
 	static #DEBUG_TOOLTIP_SIZE = new Vector2(120, 30);
 	static #DEBUG_TOOLTIP_BACKGROUND_COLOR = "#000000a0";
+	static #SIMPLEX_COLOR = "#ff2600";
 
 	#canvas;
 
@@ -94,7 +94,7 @@ export class Renderer {
 			this.#renderGJKResponse(this.#scene.getGJKResponse());
 		}
 
-		this.#renderDebug();
+		this.#renderDebugTooltip();
 	}
 
 	#clear() {
@@ -162,101 +162,98 @@ export class Renderer {
 	#renderGJKResponse(response) {
 		this.#context.save();
 
-		// Draw simplex on the shapes.
+		if (response.closest1 && response.closest2) {
+			const A = response.closest1;
+			const B = response.closest2;
+
+			this.#context.setLineDash([0.1]);
+			this.#context.strokeStyle = Renderer.#DISTANCE_COLOR;
+			this.#context.beginPath();
+			this.#context.moveTo(A.x, A.y);
+			this.#context.lineTo(B.x, B.y);
+			this.#context.stroke();
+		}
+
 		if (response.simplex) {
 			const simplex = response.simplex;
 
-			this.#context.fillStyle = Renderer.#SIMPLEX_FILL_COLOR;
-			this.#context.strokeStyle = Renderer.#SIMPLEX_STROKE_COLOR;
+			this.#context.fillStyle = Renderer.#SIMPLEX_COLOR;
+			this.#context.strokeStyle = Renderer.#SIMPLEX_COLOR;
 
-			{
-				this.#context.save();
+			this.#context.save();
 
-				const P0 = response.object1.geometry.vertices[simplex[0].index1];
+			this.#context.lineWidth *= 3;
 
-				this.#setTransform(response.object1.transform);
-
-				this.#context.beginPath();
-				this.#context.moveTo(P0.x, P0.y);
-
-				for (let i = 1; i < simplex.length; i++) {
-					const P = response.object1.geometry.vertices[simplex[i].index1];
-
-					this.#context.lineTo(P.x, P.y);
+			if (response.closestFeature1) {
+				if (response.closestFeature1.isVertex) {
+					// point is already transformed
+					this.#renderPoint(response.closestFeature1.vertices[0], 0.075);
 				}
+				else if (response.closestFeature1.isEdge) {
+					const P0 = response.object1.geometry.vertices[simplex[0].index1];
 
-				this.#context.lineTo(P0.x, P0.y);
-				this.#context.stroke();
-				this.#context.fill();
-				this.#context.restore();
+					this.#setTransform(response.object1.transform);
+
+					this.#context.beginPath();
+					this.#context.moveTo(P0.x, P0.y);
+
+					for (let i = 1; i < simplex.length; i++) {
+						const P = response.object1.geometry.vertices[simplex[i].index1];
+
+						this.#context.lineTo(P.x, P.y);
+					}
+
+					this.#context.lineTo(P0.x, P0.y);
+					this.#context.stroke();
+				}
 			}
 
-			{
-				this.#context.save();
+			this.#context.restore();
+			this.#context.save();
 
-				const P0 = response.object2.geometry.vertices[simplex[0].index2];
-
-				this.#setTransform(response.object2.transform);
-
-				this.#context.beginPath();
-				this.#context.moveTo(P0.x, P0.y);
-
-				for (let i = 1; i < simplex.length; i++) {
-					const P = response.object2.geometry.vertices[simplex[i].index2];
-	
-					this.#context.lineTo(P.x, P.y);
+			if (response.closestFeature2) {
+				if (response.closestFeature2.isVertex) {
+					// point is already transformed
+					this.#renderPoint(response.closestFeature2.vertices[0], 0.075);
 				}
+				else if (response.closestFeature2.isEdge) {
+					const P0 = response.object2.geometry.vertices[simplex[0].index2];
 
-				this.#context.lineTo(P0.x, P0.y);
-				this.#context.fill();
-				this.#context.stroke();
-				this.#context.restore();
+					this.#setTransform(response.object2.transform);
+
+					this.#context.beginPath();
+					this.#context.moveTo(P0.x, P0.y);
+
+					for (let i = 1; i < simplex.length; i++) {
+						const P = response.object2.geometry.vertices[simplex[i].index2];
+
+						this.#context.lineTo(P.x, P.y);
+					}
+
+					this.#context.lineTo(P0.x, P0.y);
+					this.#context.stroke();
+				}
 			}
-		}
 
-		// Draw closest point on shape 1.
-		if (response.closest1) {
-			this.#renderPoint(response.closest1);
-		}
-
-		// Draw closest point on shape 2.
-		if (response.closest2) {
-			this.#renderPoint(response.closest2);
-		}
-
-		if (response.closest1 && response.closest2) {
-			const p1 = response.closest1;
-			const p2 = response.closest2;
-
-			this.#context.strokeStyle = Renderer.#HOVER_STROKE_COLOR;
-			this.#context.beginPath();
-			this.#context.moveTo(p1.x, p1.y);
-			this.#context.lineTo(p2.x, p2.y);
-			this.#context.stroke();
+			this.#context.restore();
 		}
 	}
 
 	/**
-	 * @param {import("./math/index.js").Vector2} p
+	 * @param {import("./math/index.js").Vector2} P
+	 * @param {Number} [radius]
 	 */
-	#renderPoint(p) {
-		this.#context.fillStyle = Renderer.#HOVER_FILL_COLOR;
-		this.#context.strokeStyle = Renderer.#HOVER_STROKE_COLOR;
+	#renderPoint(P, radius = 0.1) {
 		this.#context.beginPath();
-		this.#context.arc(p.x, p.y, 0.1, 0, pi * 2);
+		this.#context.arc(P.x, P.y, radius, 0, pi * 2);
 		this.#context.fill();
-		this.#context.stroke();
-	}
-
-	#renderDebug() {
-		this.#renderDebugTooltip();
 	}
 
 	#renderDebugTooltip() {
 		this.#context.fillStyle = Renderer.#DEBUG_TOOLTIP_BACKGROUND_COLOR;
 
-		const tooltipX = (this.#view.mouse.x); // + Renderer.#DEBUG_TOOLTIP_MARGIN.x) / this.#zoomLevel;
-		const tooltipY = (this.#view.mouse.y); // - Renderer.#DEBUG_TOOLTIP_MARGIN.y) / this.#zoomLevel;
+		const tooltipX = this.#view.mouse.x;
+		const tooltipY = this.#view.mouse.y;
 
 		const flipX = Number(tooltipX + this.#debugTooltipSize.x <= this.#view.viewport.x * 0.5) * 2 - 1;
 		const flipY = Number(tooltipY - this.#debugTooltipSize.y <= -this.#view.viewport.y * 0.5) * 2 - 1;
@@ -271,6 +268,8 @@ export class Renderer {
 		this.#context.restore();
 	}
 
+	/// Stable utilities ///
+
 	/**
 	 * @param {import("./Application.js").View} view
 	 */
@@ -280,21 +279,10 @@ export class Renderer {
 		this.#canvas.width = this.#view.viewport.x;
 		this.#canvas.height = this.#view.viewport.y;
 
-		const P = transpose(this.#view.projection);
-
-		this.#context.setTransform({
-			a: P[0],
-			b: P[3],
-			c: P[1],
-			d: P[4],
-			e: P[2],
-			f: P[5],
-		});
+		this.#setTransform(Matrix3.identity());
 
 		this.#context.lineWidth = 1 / this.#view.zoomLevel;
 	}
-
-	/// Stable utilities ///
 
 	/**
 	 * @param {import("./math/index.js").Matrix3} T
@@ -359,20 +347,20 @@ export class Renderer {
 	}
 
 	/**
-	 * @param {import("./index.js").Object} object
+	 * @param {import("./index.js").Object} A
 	 */
-	#renderCenterOfMass(object) {
-		const C = object.geometry.centerOfMass;
+	#renderCenterOfMass(A) {
+		const C = A.geometry.centerOfMass;
 
 		this.#context.save();
 
-		this.#context.fillStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
-		this.#context.strokeStyle = Renderer.#CENTER_OF_MASS_STROKE_COLOR;
+		this.#context.fillStyle = Renderer.#CENTER_OF_MASS_COLOR;
+		this.#context.strokeStyle = Renderer.#CENTER_OF_MASS_COLOR;
 
-		this.#setTransform(object.transform);
+		this.#setTransform(A.transform);
 
 		this.#context.beginPath();
-		this.#context.arc(C.x, C.y, 0.2, 0, pi * 2);
+		this.#context.arc(C.x, C.y, Renderer.#CENTER_OF_MASS_RADIUS, 0, pi * 2);
 		this.#context.stroke();
 		this.#context.clip();
 

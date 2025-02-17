@@ -1,5 +1,5 @@
 import {Geometry} from "./index.js";
-import {dot, Matrix3, Vector2} from "./math/index.js";
+import {dot, Matrix3, negate, Vector2} from "./math/index.js";
 
 export class Object {
 	#position = new Vector2(0, 0);
@@ -128,17 +128,7 @@ export class Object {
 	}
 
 	updateTransform() {
-		const translationPos = Matrix3.translation(this.#position);
-		const translationCOM = Matrix3.translation(new Vector2(this.#geometry.centerOfMass).negate());
-		const rotation = Matrix3.rotation(this.#rotation);
-		const scale = Matrix3.scale(this.#scale);
-
-		const transform = Matrix3.identity();
-
-		transform.multiply(translationPos);
-		transform.multiply(rotation);
-		transform.multiply(scale);
-		transform.multiply(translationCOM);
+		const transform = this.#getTransform(this.#position, this.#rotation);
 
 		this.#transform.set(transform);
 	}
@@ -147,22 +137,23 @@ export class Object {
 	 * @param {Number} t
 	 */
 	at(t) {
-		const p = new Vector2(this.#position).add(new Vector2(this.#linearVelocity).multiplyScalar(t));
-		const r = this.#rotation + this.#angularVelocity * t;
+		const position = new Vector2(this.#linearVelocity).multiplyScalar(t).add(this.#position);
+		const rotation = this.#rotation + this.#angularVelocity * t;
 
-		const translationPos = Matrix3.translation(p);
-		const translationCOM = Matrix3.translation(new Vector2(this.#geometry.centerOfMass).negate());
-		const rotation = Matrix3.rotation(r);
-		const scale = Matrix3.scale(this.#scale);
+		return this.#getTransform(position, rotation);
+	}
 
-		const transform = Matrix3.identity();
+	/**
+	 * @param {import("../src/math/index.js").Vector2} position
+	 * @param {Number} rotation
+	 */
+	#getTransform(position, rotation) {
+		const T = Matrix3.translation(position);
+		T.multiply(Matrix3.rotation(rotation));
+		T.multiply(Matrix3.scale(this.#scale));
+		T.multiply(Matrix3.translation(negate(this.#geometry.centerOfMass)));
 
-		transform.multiply(translationPos);
-		transform.multiply(rotation);
-		transform.multiply(scale);
-		transform.multiply(translationCOM);
-
-		return transform;
+		return T;
 	}
 
 	/**
@@ -237,13 +228,9 @@ export class Object {
 
 		const vertices = this.#geometry.vertices;
 
-		response.index = 0;
-		response.t = t;
-		response.vertex = vertices[response.index];
-
 		let maxAngle = Number.NEGATIVE_INFINITY;
 
-		for (let i = response.index; i < vertices.length; i++) {
+		for (let i = 0; i < vertices.length; i++) {
 			const vertex = vertices[i];
 			const transformedVertex = new Vector2(vertex).multiplyMatrix(transform);
 			const angle = dot(transformedVertex, D);

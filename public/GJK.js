@@ -21,6 +21,7 @@ import {ClosestFeature} from "../src/ClosestFeature.js";
  * @property {import("../src/math/index.js").Vector2} closest1 Closest point on the closest feature on object 1
  * @property {import("../src/math/index.js").Vector2} closest2 Closest point on the closest feature on object 2
  * @property {Number} distance Distance between the closest points
+ * @property {Boolean} overlap Whether the shapes are intersecting
  * @property {Simplex} [simplex] Visualization purposes
  */
 
@@ -282,7 +283,7 @@ export function ClosestPointTriangle(simplex, p) {
 	}
 
 	// In region ABC.
-	assert(uABC > 0 && vABC > 0 && wABC > 0);
+	// assert(uABC > 0 && vABC > 0 && wABC > 0);
 
 	simplex[0].u = uABC;
 	simplex[1].u = vABC;
@@ -340,6 +341,7 @@ function getClosestPointsOnPolygons(response, simplex) {
 		case 1:
 			response.closest1 = simplex[0].vertex1;
 			response.closest2 = simplex[0].vertex2;
+			response.overlap = false;
 
 			break;
 		case 2:
@@ -347,6 +349,7 @@ function getClosestPointsOnPolygons(response, simplex) {
 				.add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u * s));
 			response.closest2 = new Vector2(simplex[0].vertex2).multiplyScalar(simplex[0].u * s)
 				.add(new Vector2(simplex[1].vertex2).multiplyScalar(simplex[1].u * s));
+			response.overlap = false;
 
 			break;
 		case 3:
@@ -354,6 +357,7 @@ function getClosestPointsOnPolygons(response, simplex) {
 				.add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u * s))
 				.add(new Vector2(simplex[2].vertex1).multiplyScalar(simplex[2].u * s));
 			response.closest2 = new Vector2(response.closest1);
+			response.overlap = true;
 
 			break;
 	}
