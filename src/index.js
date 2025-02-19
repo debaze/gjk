@@ -1,5 +1,6 @@
 export {Application} from "./Application.js";
 export {ClosestFeature} from "./ClosestFeature.js";
+export {Color} from "./Color.js";
 export {Geometry} from "./Geometry.js";
 export {Integrator} from "./Integrator.js";
 export {Material} from "./Material.js";

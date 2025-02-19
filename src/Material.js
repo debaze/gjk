@@ -1,7 +1,7 @@
 /**
  * @typedef {Object} MaterialDescriptor
- * @property {String} fillColor
- * @property {String} strokeColor
+ * @property {import("./index.js").Color} fillColor
+ * @property {import("./index.js").Color} strokeColor
  */
 
 export class Material {
@@ -16,11 +16,11 @@ export class Material {
 		this.#strokeColor = descriptor.strokeColor;
 	}
 
-	getFillColor() {
+	get fillColor() {
 		return this.#fillColor;
 	}
 
-	getStrokeColor() {
+	get strokeColor() {
 		return this.#strokeColor;
 	}
 }

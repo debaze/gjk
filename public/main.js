@@ -1,4 +1,4 @@
-import {Application, Geometry, Material, Object, Scene} from "../src/index.js";
+import {Application, Color, Geometry, Material, Object, Scene} from "../src/index.js";
 import {radians, Vector2} from "../src/math/index.js";
 
 const application = new Application();
@@ -15,13 +15,14 @@ const plane = new Object(
 		new Vector2(-2.25, -1.5),
 	]),
 	new Material({
-		fillColor: "#f4fedb",
-		strokeColor: "#000000",
+		fillColor: Color.rgb(244, 254, 219),
+		strokeColor: Color.rgb(0, 0, 0),
 	}),
 );
 plane.label = "Plane";
 plane.position.set(new Vector2(0.45, -0.625));
-// plane.angularVelocity = radians(0.1);
+plane.angularVelocity = radians(0.1);
+// plane.linearVelocity = new Vector2(0, -0.002);
 plane.updateTransform();
 
 const triangle = new Object(
@@ -31,19 +32,20 @@ const triangle = new Object(
 		new Vector2(6, 0),
 	]),
 	new Material({
-		fillColor: "#e6ddff",
-		strokeColor: "#000000",
+		fillColor: Color.rgb(230, 221, 255),
+		strokeColor: Color.rgb(0, 0, 0),
 	}),
 );
 triangle.label = "Triangle";
 triangle.position.set(new Vector2(0, 2));
 triangle.rotation = radians(-30);
 // triangle.angularVelocity = radians(0.25);
-triangle.angularVelocity = radians(70);
+// triangle.angularVelocity = radians(70);
 
 // const toi = 0.787109375;
-// triangle.rotation += triangle.angularVelocity * toi;
+// triangle.rotation -= triangle.angularVelocity;
 // triangle.angularVelocity = 0;
+
 triangle.updateTransform();
 
 /* const cube = new Object(

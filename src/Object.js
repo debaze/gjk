@@ -128,7 +128,7 @@ export class Object {
 	}
 
 	updateTransform() {
-		const transform = this.#getTransform(this.#position, this.#rotation);
+		const transform = this.getTransform(this.#position, this.#rotation);
 
 		this.#transform.set(transform);
 	}
@@ -140,14 +140,14 @@ export class Object {
 		const position = new Vector2(this.#linearVelocity).multiplyScalar(t).add(this.#position);
 		const rotation = this.#rotation + this.#angularVelocity * t;
 
-		return this.#getTransform(position, rotation);
+		return this.getTransform(position, rotation);
 	}
 
 	/**
 	 * @param {import("../src/math/index.js").Vector2} position
 	 * @param {Number} rotation
 	 */
-	#getTransform(position, rotation) {
+	getTransform(position, rotation) {
 		const T = Matrix3.translation(position);
 		T.multiply(Matrix3.rotation(rotation));
 		T.multiply(Matrix3.scale(this.#scale));

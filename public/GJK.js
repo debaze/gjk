@@ -25,7 +25,7 @@ import {ClosestFeature} from "../src/ClosestFeature.js";
  * @property {Simplex} [simplex] Visualization purposes
  */
 
-const GJK_MAX_ITERATIONS = 3;
+const GJK_MAX_ITERATIONS = 8;
 
 let maxRecordedIterations = 0;
 

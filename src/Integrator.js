@@ -1,23 +1,19 @@
 import {ClosestFeature, Object} from "./index.js";
-import {abs, cross, dot, negate, Vector2} from "./math/index.js";
+import {abs, dot, negate, Vector2} from "./math/index.js";
 
 import {GJK} from "../public/GJK.js";
 
-// Iteration limits
 const BISECTION_MAX_ITERATIONS = 32;
-const CLOSEST_FEATURE_MAX_ITERATIONS = 2;
-const POINT_CLOUD_VS_PLANE_MAX_ITERATIONS = 4;
-
-// Tolerances
+const CLOSEST_FEATURE_MAX_ITERATIONS = 32;
+const POINT_CLOUD_VS_PLANE_MAX_ITERATIONS = 32;
 const DISTANCE_TOLERANCE = 0.01;
 const SEPARATION_TOLERANCE = 0.001;
 
 /**
- * @typedef {Object} Plane
- * @property {import("./math/index.js").Vector2} n Normal
- * @property {Number} w Offset
- * @property {import("./math/index.js").Vector2} lv Linear velocity
- * @property {Number} av Angular velocity
+ * @typedef {(t: Number, deepestPointIndex: Number) => Number} SeparationFunction
+ * @typedef {(t: Number, deepestPointIndex: Number) => import("./math/index.js").Vector2} PointFunction
+ * @typedef {(t: Number) => import("./math/index.js").Vector2} NormalFunction
+ * @typedef {(t: Number) => Number} OffsetFunction
  */
 
 /**
@@ -38,7 +34,7 @@ export class Integrator {
 		const objects = scene.getObjects();
 
 		if (objects.length === 2) {
-			const gjkResponse = GJK(objects[0], objects[1]); // at t = 0
+			const gjkResponse = GJK(objects[0], objects[1]);
 
 			scene.setGJKResponse(gjkResponse);
 		}
@@ -52,7 +48,7 @@ export class Integrator {
 	 */
 	#integrate(objects, frameIndex) {
 		// Standard update
-		/* {
+		{
 			for (let i = 0; i < objects.length; i++) {
 				const a = objects[i];
 
@@ -60,12 +56,12 @@ export class Integrator {
 			}
 
 			return;
-		} */
+		}
 
 		for (let i = 0; i < objects.length - 1; i++) {
 			for (let j = i + 1; j < objects.length; j++) {
-				const a = objects[i]; // plane
-				const b = objects[j]; // polygon (cube)
+				const A = objects[i];
+				const B = objects[j];
 
 				let t0 = 0;
 				let t1 = 1;
@@ -73,7 +69,7 @@ export class Integrator {
 
 				closestFeature: for (let k = 0; k < CLOSEST_FEATURE_MAX_ITERATIONS; k++) {
 					// Get closest features at t0.
-					const gjkResponse = getClosestFeatures(a, b, t0);
+					const gjkResponse = getClosestFeatures(A, B, t0);
 
 					if (gjkResponse.overlap) {
 						debugger;
@@ -81,9 +77,9 @@ export class Integrator {
 						throw new Error("Shapes are overlapping");
 					}
 
-					const s = gjkResponse.distance;
+					const d = gjkResponse.distance;
 
-					if (abs(s) < DISTANCE_TOLERANCE) {
+					if (abs(d) < DISTANCE_TOLERANCE) {
 						toi = t0;
 
 						console.info("TOI", toi);
@@ -106,97 +102,126 @@ export class Integrator {
 					 */
 					let separatingPlane;
 
-					if (gjkResponse.closestFeature1.isEdge) {
-						polygonAsPlane = a;
-						polygonAsPolygon = b;
-						separatingPlane = gjkResponse.closestFeature1;
-					}
-					else if (gjkResponse.closestFeature2.isEdge) {
-						polygonAsPlane = b;
-						polygonAsPolygon = a;
-						separatingPlane = gjkResponse.closestFeature2;
-					}
-					else if (gjkResponse.closestFeature1.isVertex && gjkResponse.closestFeature2.isVertex) {
-						throw new Error("todo: vertex vs. vertex");
-						// const a = gjkResponse.closestFeature1.vertices[0];
-						// const b = gjkResponse.closestFeature2.vertices[0];
-						// const ab = new Vector2(b).subtract(a).normalize();
+					/**
+					 * @type {PointFunction}
+					 */
+					let p;
+
+					/**
+					 * @type {NormalFunction}
+					 */
+					let n;
+
+					/**
+					 * @type {SeparationFunction}
+					 */
+					let s;
+
+					const vertexVsVertexCase = gjkResponse.closestFeature1.isVertex && gjkResponse.closestFeature2.isVertex;
+
+					if (vertexVsVertexCase) {
+						s = function(t, deepestPointIndex) {
+							const tA = A.at(t);
+							const tB = B.at(t);
+
+							const nA = new Vector2(gjkResponse.closestFeature1.vertices[0]).multiplyMatrix(tA);
+							const nB = new Vector2(gjkResponse.closestFeature2.vertices[0]).multiplyMatrix(tB);
+
+							const n = new Vector2(nB).subtract(nA).normalize();
+
+							const pA = A.supportTime(n, t).transformedVertex;
+							const pB = B.supportTime(negate(n), t).transformedVertex;
+
+							const p = new Vector2(pB).subtract(pA);
+
+							return dot(n, p);
+						};
 					}
 					else {
-						throw new Error("unhandled");
-					}
-
-					/**
-					 * @param {Number} t
-					 */
-					function n(t) {
-						let T = polygonAsPlane.at(t);
-
-						const a = new Vector2(separatingPlane.vertices[0]).multiplyMatrix(T);
-						const b = new Vector2(separatingPlane.vertices[1]).multiplyMatrix(T);
-						const ab = new Vector2(b).subtract(a);
-
-						if (dot(ab, polygonAsPlane.geometry.centerOfMass) > 0) {
-							return new Vector2(-ab.y, ab.x).normalize();
+						if (gjkResponse.closestFeature1.isEdge) {
+							polygonAsPlane = A;
+							polygonAsPolygon = B;
+							separatingPlane = gjkResponse.closestFeature1;
 						}
-						else {
-							return new Vector2(ab.y, -ab.x).normalize();
+						else if (gjkResponse.closestFeature2.isEdge) {
+							polygonAsPlane = B;
+							polygonAsPolygon = A;
+							separatingPlane = gjkResponse.closestFeature2;
 						}
-					}
 
-					/**
-					 * @param {Number} t
-					 */
-					function w(t) {
-						return polygonAsPlane.position.y - polygonAsPlane.geometry.centerOfMass.y;
+						p = function(t, deepestPointIndex) {
+							const T = polygonAsPolygon.at(t);
+
+							return new Vector2(polygonAsPolygon.geometry.vertices[deepestPointIndex]).multiplyMatrix(T);
+						};
+
+						s = function(t, deepestPointIndex) {
+							let T = polygonAsPlane.at(t);
+
+							const a = new Vector2(separatingPlane.vertices[0]).multiplyMatrix(T);
+							const b = new Vector2(separatingPlane.vertices[1]).multiplyMatrix(T);
+							const ab = new Vector2(b).subtract(a);
+							let n;
+
+							if (dot(ab, polygonAsPlane.geometry.centerOfMass) > 0) {
+								n = new Vector2(-ab.y, ab.x).normalize();
+							}
+							else {
+								n = new Vector2(ab.y, -ab.x).normalize();
+							}
+
+							const w = dot(n, a); // or dot(n, b)
+
+							return dot(n, p(t, deepestPointIndex)) - w;
+						}
 					}
 
 					t1 = 1;
 
 					// Point cloud vs. plane
 					pointCloudVsPlane: for (let l = 0; l < POINT_CLOUD_VS_PLANE_MAX_ITERATIONS; l++) {
-						const normal = n(t1);
-						const deepestPoint = polygonAsPolygon.supportTime(negate(normal), t1);
-						const s = dot(deepestPoint.transformedVertex, normal);
+						if (!vertexVsVertexCase) {
+							let T = polygonAsPlane.at(t1);
 
-						// console.log(k, l, t1, d);
+							const a = new Vector2(separatingPlane.vertices[0]).multiplyMatrix(T);
+							const b = new Vector2(separatingPlane.vertices[1]).multiplyMatrix(T);
+							const ab = new Vector2(b).subtract(a);
+							let n;
 
-						if (s > DISTANCE_TOLERANCE) {
-							t0 = t1;
+							if (dot(ab, polygonAsPlane.geometry.centerOfMass) > 0) {
+								n = new Vector2(-ab.y, ab.x).normalize();
+							}
+							else {
+								n = new Vector2(ab.y, -ab.x).normalize();
+							}
 
-							console.info("No collision");
+							const deepestPoint = polygonAsPolygon.supportTime(negate(n), t1);
+							const d = dot(deepestPoint.transformedVertex, n);
 
-							break closestFeature;
+							if (d > DISTANCE_TOLERANCE) {
+								t0 = t1;
+
+								console.info("No collision. t0:", t0);
+
+								updateObjectAtT(A, t0);
+								updateObjectAtT(B, t0);
+
+								break closestFeature;
+							}
+
+							if (d > -DISTANCE_TOLERANCE) {
+								break pointCloudVsPlane;
+							}
+
+							t1 = bisection(s, deepestPoint.index);
 						}
-
-						if (s > -DISTANCE_TOLERANCE) {
-							break pointCloudVsPlane;
+						else {
+							t1 = bisection(s);
 						}
-
-						/**
-						 * @param {Number} t
-						 */
-						function p(t) {
-							const T = polygonAsPolygon.at(t);
-
-							return new Vector2(polygonAsPolygon.geometry.vertices[deepestPoint.index]).multiplyMatrix(T);
-						}
-
-						/**
-						 * @param {Number} t
-						 */
-						function separation(t) {
-							return dot(n(t), p(t)) - w(t);
-						}
-
-						t1 = bisection(separation);
 					}
 
 					t0 = t1;
 				}
-
-				updateObjectAtT(a, t0);
-				updateObjectAtT(b, t0);
 			}
 		}
 	}
@@ -286,14 +311,15 @@ function getClosestFeatures(a, b, t) {
 }
 
 /**
- * @param {(t: Number) => Number} s
+ * @param {(t: Number, deepestPointIndex: Number) => Number} s
+ * @param {Number} [deepestPointIndex]
  */
-function bisection(s) {
+function bisection(s, deepestPointIndex) {
 	let t0 = 0;
 	let t1 = 1;
 
-	const s0 = s(t0);
-	const s1 = s(t1);
+	const s0 = s(t0, deepestPointIndex);
+	const s1 = s(t1, deepestPointIndex);
 
 	if (!(s0 > 0 && s1 < 0)) {
 		console.warn("No guaranteed root");
@@ -303,7 +329,7 @@ function bisection(s) {
 
 	for (let i = 0; i < BISECTION_MAX_ITERATIONS; i++) {
 		const midpoint = (t0 + t1) * 0.5;
-		const separation = s(midpoint);
+		const separation = s(midpoint, deepestPointIndex);
 
 		if (separation > 0) {
 			// Push t0 towards t1.

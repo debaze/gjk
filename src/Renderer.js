@@ -1,3 +1,4 @@
+import {Color} from "./Color.js";
 import {Matrix3, pi, transpose, Vector2} from "./math/index.js";
 
 export class Renderer {
@@ -18,16 +19,15 @@ export class Renderer {
 
 	// Geometry
 	static #CENTER_OF_MASS_RADIUS = 0.15;
-	static #CENTER_OF_MASS_COLOR = "#000000";
+	static #CENTER_OF_MASS_COLOR = Color.rgb(0, 0, 0);
 	static #DISTANCE_COLOR = "#8d8d8c";
 
-	// Hovering
-	static #HOVER_FILL_COLOR = "#273ea520";
-	static #HOVER_STROKE_COLOR = "#273ea550";
+	// Selection
+	static #SELECTION_COLOR = "#4ceb00";
 
 	// Debug
-	static #DEBUG_TOOLTIP_SIZE = new Vector2(120, 30);
-	static #DEBUG_TOOLTIP_BACKGROUND_COLOR = "#000000a0";
+	static #DEBUG_TOOLTIP_MARGIN = new Vector2(8, 8);
+	static #DEBUG_TOOLTIP_TEXT_COLOR = "#000000a0";
 	static #SIMPLEX_COLOR = "#ff2600";
 
 	#canvas;
@@ -37,21 +37,28 @@ export class Renderer {
 	 */
 	#context = null;
 
-	/**
-	 * @type {?import("./Application.js").View}
-	 */
-	#view = null;
-
+	#projection = Matrix3.identity();
+	#viewport = new Vector2(0, 0);
+	#zoomLevel = 1;
+	#mouse = new Vector2(0, 0);
 	#transform = Matrix3.identity();
-
-	#debugTooltipSize = new Vector2(Renderer.#DEBUG_TOOLTIP_SIZE);
 
 	/**
 	 * @type {?import("./index.js").Scene}
 	 */
 	#scene = null;
 
-	#hoveredObjectIndex;
+	/**
+	 * @type {?Number}
+	 */
+	hoveredObjectIndex = null;
+
+	/**
+	 * @type {?Number}
+	 */
+	draggedObjectIndex = null;
+
+	drag = new Vector2(0, 0);
 
 	constructor() {
 		this.#canvas = document.createElement("canvas");
@@ -89,11 +96,12 @@ export class Renderer {
 			const object = objects[i];
 
 			this.#renderObject(object, i);
-			this.#renderCenterOfMass(object);
 		}
 
+		this.#setTransform(Matrix3.identity());
+
 		if (this.#scene.getGJKResponse() !== null) {
-			this.#renderGJKResponse(this.#scene.getGJKResponse());
+			this.#renderGjkResponse(this.#scene.getGJKResponse());
 		}
 
 		this.#renderDebugTooltip();
@@ -104,59 +112,85 @@ export class Renderer {
 	 * @param {Number} index
 	 */
 	#renderObject(object, index) {
-		this.#context.save();
+		const isDragged = this.draggedObjectIndex === index;
+
+		if (isDragged) {
+			const position = new Vector2(object.position).add(this.drag);
+			const transform = object.getTransform(position, object.rotation);
+
+			this.#setTransform(transform);
+
+			this.#context.beginPath();
+
+			for (let i = 0; i < object.geometry.vertices.length; i++) {
+				const P = object.geometry.vertices[i];
+
+				this.#context.lineTo(P.x, P.y);
+			}
+
+			this.#context.closePath();
+
+			this.#context.fillStyle = object.material.fillColor.withAlpha(0.5).toString();
+			this.#context.fill();
+
+			this.#context.setLineDash([0.1]);
+			this.#context.strokeStyle = object.material.strokeColor.withAlpha(0.5).toString();
+			this.#context.stroke();
+			this.#context.setLineDash([]);
+
+			this.#renderCenterOfMass(object.geometry.centerOfMass, 0.5);
+		}
 
 		this.#setTransform(object.transform);
 
 		this.#context.beginPath();
 
 		for (let i = 0; i < object.geometry.vertices.length; i++) {
-			const v = new Vector2(object.geometry.vertices[i]);
+			const P = object.geometry.vertices[i];
 
-			this.#context.lineTo(v.x, v.y);
+			this.#context.lineTo(P.x, P.y);
 		}
 
 		this.#context.closePath();
 
-		/**
-		 * @todo Move into Application
-		 */
-		const mouse = new Vector2(this.#view.mouse).multiplyMatrix(this.#view.projection);
-		const isHovering = this.#context.isPointInPath(mouse.x, mouse.y);
-
-		this.#context.fillStyle = object.material.getFillColor();
-		this.#context.strokeStyle = object.material.getStrokeColor();
-
+		this.#context.fillStyle = object.material.fillColor.toString();
 		this.#context.fill();
-		this.#context.stroke();
 
-		if (isHovering) {
-			this.#hoveredObjectIndex = index;
+		const mouse = new Vector2(this.#mouse).multiplyMatrix(this.#projection);
+		const isHovered = this.#context.isPointInPath(mouse.x, mouse.y);
 
-			this.#context.fillStyle = "#00000020";
-
-			this.#context.fill();
+		if (isHovered) {
+			this.hoveredObjectIndex = index;
 		}
 		else {
-			if (this.#hoveredObjectIndex === index) {
-				this.#hoveredObjectIndex = null;
+			if (this.draggedObjectIndex === null && this.hoveredObjectIndex === index) {
+				this.hoveredObjectIndex = null;
 			}
 		}
 
-		this.#context.restore();
+		if (isDragged) {
+			this.#context.lineWidth *= 2;
+			this.#context.strokeStyle = Renderer.#SELECTION_COLOR;
+		}
+		else {
+			this.#context.strokeStyle = object.material.strokeColor.toString();
+		}
 
-		this.#renderCenterOfMass(object);
+		this.#context.stroke();
+		this.#context.lineWidth = 1 / this.#zoomLevel;
+
+		this.#renderCenterOfMass(object.geometry.centerOfMass, 1);
 	}
 
 	/**
-	 * @param {import("../public/GJK.js").GJKResponse} response
+	 * @param {import("../public/GJK.js").GJKResponse} gjkResponse
 	 */
-	#renderGJKResponse(response) {
+	#renderGjkResponse(gjkResponse) {
 		this.#context.save();
 
-		if (response.closest1 && response.closest2) {
-			const A = response.closest1;
-			const B = response.closest2;
+		if (gjkResponse.closest1 && gjkResponse.closest2) {
+			const A = gjkResponse.closest1;
+			const B = gjkResponse.closest2;
 
 			this.#context.setLineDash([0.1]);
 			this.#context.strokeStyle = Renderer.#DISTANCE_COLOR;
@@ -164,32 +198,34 @@ export class Renderer {
 			this.#context.moveTo(A.x, A.y);
 			this.#context.lineTo(B.x, B.y);
 			this.#context.stroke();
+			this.#context.setLineDash([]);
 		}
 
-		if (response.simplex) {
-			const simplex = response.simplex;
+		if (gjkResponse.simplex) {
+			const simplex = gjkResponse.simplex;
 
 			this.#context.fillStyle = Renderer.#SIMPLEX_COLOR;
 			this.#context.strokeStyle = Renderer.#SIMPLEX_COLOR;
+			this.#context.lineWidth *= 3;
 
 			this.#context.save();
 
-			this.#context.lineWidth *= 3;
+			if (gjkResponse.closestFeature1) {
+				if (gjkResponse.closestFeature1.isVertex) {
+					this.#setTransform(Matrix3.identity());
 
-			if (response.closestFeature1) {
-				if (response.closestFeature1.isVertex) {
-					this.#renderPoint(response.closestFeature1.vertices[0], 0.075);
+					this.#renderPoint(gjkResponse.closestFeature1.vertices[0], 0.075);
 				}
-				else if (response.closestFeature1.isEdge) {
-					const P0 = response.object1.geometry.vertices[simplex[0].index1];
+				else if (gjkResponse.closestFeature1.isEdge) {
+					const P0 = gjkResponse.object1.geometry.vertices[simplex[0].index1];
 
-					this.#setTransform(response.object1.transform);
+					this.#setTransform(gjkResponse.object1.transform);
 
 					this.#context.beginPath();
 					this.#context.moveTo(P0.x, P0.y);
 
 					for (let i = 1; i < simplex.length; i++) {
-						const P = response.object1.geometry.vertices[simplex[i].index1];
+						const P = gjkResponse.object1.geometry.vertices[simplex[i].index1];
 
 						this.#context.lineTo(P.x, P.y);
 					}
@@ -200,22 +236,23 @@ export class Renderer {
 			}
 
 			this.#context.restore();
-			this.#context.save();
 
-			if (response.closestFeature2) {
-				if (response.closestFeature2.isVertex) {
-					this.#renderPoint(response.closestFeature2.vertices[0], 0.075);
+			if (gjkResponse.closestFeature2) {
+				if (gjkResponse.closestFeature2.isVertex) {
+					this.#setTransform(Matrix3.identity());
+
+					this.#renderPoint(gjkResponse.closestFeature2.vertices[0], 0.075);
 				}
-				else if (response.closestFeature2.isEdge) {
-					const P0 = response.object2.geometry.vertices[simplex[0].index2];
+				else if (gjkResponse.closestFeature2.isEdge) {
+					const P0 = gjkResponse.object2.geometry.vertices[simplex[0].index2];
 
-					this.#setTransform(response.object2.transform);
+					this.#setTransform(gjkResponse.object2.transform);
 
 					this.#context.beginPath();
 					this.#context.moveTo(P0.x, P0.y);
 
 					for (let i = 1; i < simplex.length; i++) {
-						const P = response.object2.geometry.vertices[simplex[i].index2];
+						const P = gjkResponse.object2.geometry.vertices[simplex[i].index2];
 
 						this.#context.lineTo(P.x, P.y);
 					}
@@ -224,35 +261,18 @@ export class Renderer {
 					this.#context.stroke();
 				}
 			}
+
+			this.#setTransform(Matrix3.identity());
 
 			this.#context.restore();
 		}
-	}
-
-	#renderDebugTooltip() {
-		this.#context.fillStyle = Renderer.#DEBUG_TOOLTIP_BACKGROUND_COLOR;
-
-		const tooltipX = this.#view.mouse.x;
-		const tooltipY = this.#view.mouse.y;
-
-		const flipX = Number(tooltipX + this.#debugTooltipSize.x <= this.#view.viewport.x * 0.5) * 2 - 1;
-		const flipY = Number(tooltipY - this.#debugTooltipSize.y <= -this.#view.viewport.y * 0.5) * 2 - 1;
-
-		this.#context.fillRect(tooltipX, tooltipY, this.#debugTooltipSize.x * flipX / this.#view.zoomLevel, this.#debugTooltipSize.y * flipY / this.#view.zoomLevel);
-
-		this.#context.save();
-		this.#context.font = "0.25px Arial";
-		this.#context.fillStyle = "#fff";
-		this.#context.scale(1, -1);
-		this.#context.fillText(`${this.#view.mouse}`, tooltipX, -tooltipY + 0.35);
-		this.#context.restore();
 	}
 
 	/// Stable utilities ///
 
 	#clear() {
-		const w = this.#view.viewport.x;
-		const h = this.#view.viewport.y;
+		const w = this.#viewport.x;
+		const h = this.#viewport.y;
 
 		this.#context.fillStyle = Renderer.#BACKGROUND_COLOR;
 		this.#context.fillRect(-w * 0.5, -h * 0.5, w, h);
@@ -262,14 +282,25 @@ export class Renderer {
 	 * @param {import("./Application.js").View} view
 	 */
 	setView(view) {
-		this.#view = view;
+		this.#viewport = view.viewport;
+		this.#zoomLevel = view.zoomLevel;
+		this.#mouse = view.mouse;
 
-		this.#canvas.width = this.#view.viewport.x;
-		this.#canvas.height = this.#view.viewport.y;
+		this.#canvas.width = this.#viewport.x;
+		this.#canvas.height = this.#viewport.y;
 
-		this.#setTransform(Matrix3.identity());
+		this.#setProjection(view.projection);
 
-		this.#context.lineWidth = 1 / this.#view.zoomLevel;
+		this.#context.lineWidth = 1 / this.#zoomLevel;
+	}
+
+	/**
+	 * @param {import("./math/index.js").Matrix3} P
+	 */
+	#setProjection(P) {
+		this.#projection.set(P);
+
+		this.#updateProjectionAndTransform();
 	}
 
 	/**
@@ -278,21 +309,25 @@ export class Renderer {
 	#setTransform(T) {
 		this.#transform.set(T);
 
-		const TP = transpose(new Matrix3(this.#view.projection).multiply(this.#transform));
+		this.#updateProjectionAndTransform();
+	}
+
+	#updateProjectionAndTransform() {
+		const PT = transpose(new Matrix3(this.#projection).multiply(this.#transform));
 
 		this.#context.setTransform({
-			a: TP[0],
-			b: TP[3],
-			c: TP[1],
-			d: TP[4],
-			e: TP[2],
-			f: TP[5],
+			a: PT[0],
+			b: PT[3],
+			c: PT[1],
+			d: PT[4],
+			e: PT[2],
+			f: PT[5],
 		});
 	}
 
 	#renderGrid() {
-		const w = this.#view.viewport.x;
-		const h = this.#view.viewport.y;
+		const w = this.#viewport.x;
+		const h = this.#viewport.y;
 
 		this.#context.strokeStyle = Renderer.#GRID_COLOR;
 		this.#context.beginPath();
@@ -317,8 +352,8 @@ export class Renderer {
 	}
 
 	#renderAxes() {
-		const w = this.#view.viewport.x;
-		const h = this.#view.viewport.y;
+		const w = this.#viewport.x;
+		const h = this.#viewport.y;
 
 		this.#context.strokeStyle = Renderer.#AXIS_COLOR;
 		this.#context.beginPath();
@@ -335,17 +370,14 @@ export class Renderer {
 	}
 
 	/**
-	 * @param {import("./index.js").Object} A
+	 * @param {import("./math/index.js").Vector2} C Center of mass
+	 * @param {Number} a Alpha
 	 */
-	#renderCenterOfMass(A) {
-		const C = A.geometry.centerOfMass;
-
+	#renderCenterOfMass(C, a) {
 		this.#context.save();
 
-		this.#context.fillStyle = Renderer.#CENTER_OF_MASS_COLOR;
-		this.#context.strokeStyle = Renderer.#CENTER_OF_MASS_COLOR;
-
-		this.#setTransform(A.transform);
+		this.#context.fillStyle = Renderer.#CENTER_OF_MASS_COLOR.withAlpha(a).toString();
+		this.#context.strokeStyle = Renderer.#CENTER_OF_MASS_COLOR.withAlpha(a).toString();
 
 		this.#context.beginPath();
 		this.#context.arc(C.x, C.y, Renderer.#CENTER_OF_MASS_RADIUS, 0, pi * 2);
@@ -369,5 +401,23 @@ export class Renderer {
 		this.#context.beginPath();
 		this.#context.arc(P.x, P.y, radius, 0, pi * 2);
 		this.#context.fill();
+	}
+
+	#renderDebugTooltip() {
+		this.#setProjection(Matrix3.identity());
+
+		const textLines = [
+			`Position: (${this.#mouse.x.toFixed(3)}, ${this.#mouse.y.toFixed(3)})`,
+			`Hovering object: ${this.hoveredObjectIndex}`,
+			`Dragging object: ${this.draggedObjectIndex}`,
+		];
+		const fontSize = 12;
+
+		this.#context.font = `${fontSize}px Consolas, monospace`;
+		this.#context.fillStyle = Renderer.#DEBUG_TOOLTIP_TEXT_COLOR;
+
+		for (let i = 0; i < textLines.length; i++) {
+			this.#context.fillText(textLines[i], Renderer.#DEBUG_TOOLTIP_MARGIN.x, Renderer.#DEBUG_TOOLTIP_MARGIN.y + fontSize / 3 * 2 + i * fontSize);
+		}
 	}
 }

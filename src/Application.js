@@ -45,19 +45,7 @@ export class Application {
 	 */
 	#animationFrameRequestId = null;
 
-	/**
-	 * @type {?Number}
-	 */
-	#hoveredObjectIndex = null;
-
-	/**
-	 * @type {?Number}
-	 */
-	#draggedObjectIndex = null;
-
 	#mouse = new Vector2(0, 0);
-
-	#dragPosition = new Vector2(0, 0);
 
 	async initialize() {
 		const canvas = this.#renderer.getCanvas();
@@ -151,16 +139,18 @@ export class Application {
 	 * @param {MouseEvent} event
 	 */
 	#onMouseDown(event) {
-		const client = new Vector2(event.clientX, event.clientY);
-
-		if (this.#hoveredObjectIndex === null) {
+		if (this.#renderer.hoveredObjectIndex === null) {
 			return;
 		}
 
-		this.#draggedObjectIndex = this.#hoveredObjectIndex;
+		const client = new Vector2(event.clientX, event.clientY);
 
-		this.#dragPosition.set(client);
-		this.#dragPosition.multiplyMatrix(this.#projectionInverse);
+		this.#mouse.set(client);
+		this.#mouse.multiplyMatrix(this.#projectionInverse);
+
+		this.#renderer.drag.reset();
+
+		this.#renderer.draggedObjectIndex = this.#renderer.hoveredObjectIndex;
 
 		// this.#integrator.onMouseDown(client);
 	}
@@ -169,19 +159,13 @@ export class Application {
 	 * @param {MouseEvent} event
 	 */
 	#onMouseMove(event) {
-		const client = new Vector2(event.clientX, event.clientY);
+		const mouse = new Vector2(event.clientX, event.clientY).multiplyMatrix(this.#projectionInverse);
+		const diff = new Vector2(mouse).subtract(this.#mouse);
 
-		this.#mouse.set(client);
-		this.#mouse.multiplyMatrix(this.#projectionInverse);
+		this.#mouse.set(mouse);
 
-		if (this.#draggedObjectIndex !== null) {
-			const object = this.#scene.getObjects()[this.#draggedObjectIndex];
-			const drag = new Vector2(this.#mouse).subtract(this.#dragPosition);
-
-			object.position.add(new Vector3(drag.x, drag.y, 0));
-			object.updateTransform();
-
-			this.#dragPosition.set(this.#mouse);
+		if (this.#renderer.draggedObjectIndex !== null) {
+			this.#renderer.drag.add(diff);
 		}
 	}
 
@@ -189,8 +173,14 @@ export class Application {
 	 * @param {MouseEvent} event
 	 */
 	#onMouseUp(event) {
-		this.#dragPosition.reset();
-		this.#draggedObjectIndex = null;
+		if (this.#renderer.draggedObjectIndex !== null) {
+			const A = this.#scene.getObjects()[this.#renderer.draggedObjectIndex];
+
+			A.position.add(this.#renderer.drag);
+
+			this.#renderer.draggedObjectIndex = null;
+			this.#renderer.drag.reset();
+		}
 	}
 
 	/**
