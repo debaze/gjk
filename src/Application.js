@@ -177,6 +177,7 @@ export class Application {
 			const A = this.#scene.getObjects()[this.#renderer.draggedObjectIndex];
 
 			A.position.add(this.#renderer.drag);
+			A.updateTransform();
 
 			this.#renderer.draggedObjectIndex = null;
 			this.#renderer.drag.reset();

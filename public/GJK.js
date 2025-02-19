@@ -43,6 +43,7 @@ function assert(condition) {
  */
 class Simplex extends Array {
 	divisor = 1;
+	D = new Vector2(0, 0);
 
 	getSearchDirection() {
 		switch (this.length) {
@@ -139,15 +140,15 @@ export function GJK(M1, M2) {
 			break loop;
 		}
 
-		const D = S.getSearchDirection();
+		S.D = S.getSearchDirection();
 
-		if (D.x === 0 && D.y === 0) {
+		if (S.D.x === 0 && S.D.y === 0) {
 			console.warn("[GJK]: Search direction is 0 (vertex overlap).");
 
 			break loop;
 		}
 
-		const P = MinkowskiDifference.support(M1, M2, D);
+		const P = MinkowskiDifference.support(M1, M2, S.D);
 
 		for (let i = 0; i < saveCount; i++) {
 			if (P.index1 === save1[i] && P.index2 === save2[i]) {
@@ -376,11 +377,11 @@ function getClosestFeaturesOnPolygons(response, simplex) {
 		case 1:
 			// Both closest features are vertices
 			response.closestFeature1 = new ClosestFeature([
-				simplex[0].vertex1,
+				simplex[0].index1,
 			]);
 
 			response.closestFeature2 = new ClosestFeature([
-				simplex[0].vertex2,
+				simplex[0].index2,
 			]);
 
 			break;
@@ -388,28 +389,28 @@ function getClosestFeaturesOnPolygons(response, simplex) {
 			if (simplex[0].vertex1.x === simplex[1].vertex1.x && simplex[0].vertex1.y === simplex[1].vertex1.y) {
 				// Closest feature 1 is a vertex
 				response.closestFeature1 = new ClosestFeature([
-					simplex[0].vertex1,
+					simplex[0].index1,
 				]);
 			}
 			else {
 				// Closest feature 1 is an edge
 				response.closestFeature1 = new ClosestFeature([
-					simplex[0].vertex1,
-					simplex[1].vertex1,
+					simplex[0].index1,
+					simplex[1].index1,
 				]);
 			}
 
 			if (simplex[0].vertex2.x === simplex[1].vertex2.x && simplex[0].vertex2.y === simplex[1].vertex2.y) {
 				// Closest feature 2 is a vertex
 				response.closestFeature2 = new ClosestFeature([
-					simplex[0].vertex2,
+					simplex[0].index2,
 				]);
 			}
 			else {
 				// Closest feature 2 is an edge
 				response.closestFeature2 = new ClosestFeature([
-					simplex[0].vertex2,
-					simplex[1].vertex2,
+					simplex[0].index2,
+					simplex[1].index2,
 				]);
 			}
 

@@ -211,15 +211,13 @@ export class Renderer {
 			this.#context.save();
 
 			if (gjkResponse.closestFeature1) {
-				if (gjkResponse.closestFeature1.isVertex) {
-					this.#setTransform(Matrix3.identity());
+				this.#setTransform(gjkResponse.object1.transform);
 
-					this.#renderPoint(gjkResponse.closestFeature1.vertices[0], 0.075);
+				if (gjkResponse.closestFeature1.isVertex) {
+					this.#renderPoint(gjkResponse.object1.geometry.vertices[gjkResponse.closestFeature1.indices[0]], 0.075);
 				}
 				else if (gjkResponse.closestFeature1.isEdge) {
 					const P0 = gjkResponse.object1.geometry.vertices[simplex[0].index1];
-
-					this.#setTransform(gjkResponse.object1.transform);
 
 					this.#context.beginPath();
 					this.#context.moveTo(P0.x, P0.y);
@@ -238,15 +236,13 @@ export class Renderer {
 			this.#context.restore();
 
 			if (gjkResponse.closestFeature2) {
-				if (gjkResponse.closestFeature2.isVertex) {
-					this.#setTransform(Matrix3.identity());
+				this.#setTransform(gjkResponse.object2.transform);
 
-					this.#renderPoint(gjkResponse.closestFeature2.vertices[0], 0.075);
+				if (gjkResponse.closestFeature2.isVertex) {
+					this.#renderPoint(gjkResponse.object2.geometry.vertices[gjkResponse.closestFeature2.indices[0]], 0.075);
 				}
 				else if (gjkResponse.closestFeature2.isEdge) {
 					const P0 = gjkResponse.object2.geometry.vertices[simplex[0].index2];
-
-					this.#setTransform(gjkResponse.object2.transform);
 
 					this.#context.beginPath();
 					this.#context.moveTo(P0.x, P0.y);
@@ -408,8 +404,9 @@ export class Renderer {
 
 		const textLines = [
 			`Position: (${this.#mouse.x.toFixed(3)}, ${this.#mouse.y.toFixed(3)})`,
-			`Hovering object: ${this.hoveredObjectIndex}`,
-			`Dragging object: ${this.draggedObjectIndex}`,
+			`Overlap: ${this.#scene.getGJKResponse()?.overlap ?? "-"}`,
+			`Hovering object: ${this.hoveredObjectIndex ?? "-"}`,
+			`Dragging object: ${this.draggedObjectIndex ?? "-"}`,
 		];
 		const fontSize = 12;
 

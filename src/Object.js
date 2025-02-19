@@ -237,6 +237,7 @@ export class Object {
 				response.index = i;
 				response.vertex = vertex;
 				response.transformedVertex = transformedVertex;
+				response.angle = angle;
 
 				maxAngle = angle;
 			}

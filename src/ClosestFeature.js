@@ -1,26 +1,26 @@
 export class ClosestFeature {
-	#vertices;
+	#indices;
 
 	/**
-	 * @param {import("./math/index.js").Vector2[]} vertices
+	 * @param {Number[]} indices
 	 */
-	constructor(vertices) {
-		this.#vertices = vertices;
+	constructor(indices) {
+		this.#indices = indices;
 
-		if (this.#vertices.length === 0 || this.#vertices.length > 2) {
+		if (this.#indices.length === 0 || this.#indices.length > 2) {
 			throw new Error("Closest feature can only be a vertex or an edge.");
 		}
 	}
 
-	get vertices() {
-		return this.#vertices;
+	get indices() {
+		return this.#indices;
 	}
 
 	get isVertex() {
-		return this.#vertices.length === 1;
+		return this.#indices.length === 1;
 	}
 
 	get isEdge() {
-		return this.#vertices.length === 2;
+		return this.#indices.length === 2;
 	}
 }

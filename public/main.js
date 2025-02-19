@@ -21,7 +21,7 @@ const plane = new Object(
 );
 plane.label = "Plane";
 plane.position.set(new Vector2(0.45, -0.625));
-plane.angularVelocity = radians(0.1);
+// plane.angularVelocity = radians(0.1);
 // plane.linearVelocity = new Vector2(0, -0.002);
 plane.updateTransform();
 
@@ -37,37 +37,35 @@ const triangle = new Object(
 	}),
 );
 triangle.label = "Triangle";
-triangle.position.set(new Vector2(0, 2));
+triangle.position.set(new Vector2(-1, 1.9));
 triangle.rotation = radians(-30);
-// triangle.angularVelocity = radians(0.25);
-// triangle.angularVelocity = radians(70);
+// triangle.angularVelocity = radians(0.4627);
+triangle.angularVelocity = radians(32.26);
 
-// const toi = 0.787109375;
-// triangle.rotation -= triangle.angularVelocity;
+// const toi = 2;
+// triangle.rotation += triangle.angularVelocity * toi;
 // triangle.angularVelocity = 0;
 
 triangle.updateTransform();
 
-/* const cube = new Object(
+const cube = new Object(
 	new Geometry([
-		new Vector2(-1, 1),
-		new Vector2(1, 1),
-		new Vector2(1, -1),
-		new Vector2(-1, -1),
+		new Vector2(-4, 1),
+		new Vector2(4, 1),
+		new Vector2(4, -1),
+		new Vector2(-4, -1),
 	]),
 	new Material({
-		fillColor: "#ffee8c20",
-		strokeColor: "#ffee8c50",
+		fillColor: Color.rgb(244, 254, 219),
+		strokeColor: Color.rgb(0, 0, 0),
 	}),
 );
 cube.label = "Cube";
-cube.position.set(new Vector2(0, 2));
-cube.linearVelocity.set(new Vector2(0, 0));
-// cube.angularVelocity = -0.004;
-cube.updateTransform(); */
+cube.position.set(new Vector2(0, -1));
+cube.updateTransform();
 
 const scene = new Scene([
-	plane,
+	cube,
 	triangle,
 ]);
 

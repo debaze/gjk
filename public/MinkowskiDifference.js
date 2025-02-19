@@ -12,6 +12,7 @@ import {dot, Matrix3, negate, transpose, Vector2} from "../src/math/index.js";
  * @property {Number} t
  * @property {import("../src/math/index.js").Vector2} vertex No transform applied
  * @property {import("../src/math/index.js").Vector2} transformedVertex T transform applied
+ * @property {Number} angle
  */
 
 export class MinkowskiDifference {
