@@ -139,7 +139,7 @@ export class Application {
 	 * @param {MouseEvent} event
 	 */
 	#onMouseDown(event) {
-		if (this.#renderer.hoveredObjectIndex === null) {
+		if (this.#renderer.hoveredObjectIndex === -1) {
 			return;
 		}
 
@@ -164,7 +164,7 @@ export class Application {
 
 		this.#mouse.set(mouse);
 
-		if (this.#renderer.draggedObjectIndex !== null) {
+		if (this.#renderer.draggedObjectIndex !== -1) {
 			this.#renderer.drag.add(diff);
 		}
 	}
@@ -173,13 +173,13 @@ export class Application {
 	 * @param {MouseEvent} event
 	 */
 	#onMouseUp(event) {
-		if (this.#renderer.draggedObjectIndex !== null) {
+		if (this.#renderer.draggedObjectIndex !== -1) {
 			const A = this.#scene.getObjects()[this.#renderer.draggedObjectIndex];
 
 			A.position.add(this.#renderer.drag);
 			A.updateTransform();
 
-			this.#renderer.draggedObjectIndex = null;
+			this.#renderer.draggedObjectIndex = -1;
 			this.#renderer.drag.reset();
 		}
 	}

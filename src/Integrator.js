@@ -2,22 +2,13 @@ import {abs, cos, dot, inverse, negate, sin, Vector2} from "./math/index.js";
 
 import {GJK} from "../public/GJK.js";
 
-const FEATURE_ADVANCEMENT_LOOP_MAX_ITERATIONS = 32;
+const MAX_POLYGON_VERTICES = 8;
+
+const DISTANCE_MAX_ITERATIONS = 20;
 const DEEPEST_POINT_SOLVER_MAX_ITERATIONS = 32;
-const BISECTION_MAX_ITERATIONS = 50;
-
-const BISECTION_TOLERANCE = 0.001;
-
-const BISECTION_DEBUG = true;
 
 /**
  * @typedef {(t: Number, p: import("./math/index.js").Vector2) => Number} SeparationFunctionOld
- */
-
-/**
- * @typedef {Object} Rotation
- * @property {Number} c Cos
- * @property {Number} s Sin
  */
 
 /**
@@ -64,17 +55,22 @@ export class Integrator {
 
 				let t0 = 0;
 				let fraction = 0;
+				let state = "";
 
-				for (let k = 0; k < FEATURE_ADVANCEMENT_LOOP_MAX_ITERATIONS; k++) {
+				let distanceIterations = 0;
+
+				while (true) {
 					const transformA = A.at(t0);
 					const transformB = B.at(t0);
-					const gjkResponse = GJK(A, B, transformA, transformB);
-					const d = gjkResponse.distance;
+					const gjk = GJK(A, B, transformA, transformB);
 
-					scene.setGJKResponse(gjkResponse);
+					scene.setGJKResponse(gjk);
+
+					distanceIterations++;
 
 					// If the shapes are overlapped, we give up on continuous collision.
-					if (d <= 0) {
+					if (gjk.distance <= 0) {
+						state = "overlapped";
 						fraction = 0;
 
 						console.error("Shapes are overlapping");
@@ -82,7 +78,8 @@ export class Integrator {
 						break;
 					}
 
-					if (abs(d) <= tolerance) {
+					if (abs(gjk.distance) <= tolerance) {
+						state = "hit";
 						fraction = t0;
 
 						console.info("TOI:", fraction);
@@ -90,17 +87,19 @@ export class Integrator {
 						break;
 					}
 
-					const f = createSeparationFunction(A, B, gjkResponse, t0);
+					const f = createSeparationFunction(A, B, gjk, t0);
 
 					let t1 = 1;
 					let done = false;
+					let pushBackIterations = 0;
 
-					for (let l = 0; l < DEEPEST_POINT_SOLVER_MAX_ITERATIONS; l++) {
+					while (true) {
 						const output = findMinSeparation(f, t1);
 						let s1 = output.separation;
 
 						// Is the configuration separated at t1?
 						if (s1 > tolerance) {
+							state = "separated";
 							fraction = 1;
 							done = true;
 
@@ -119,6 +118,7 @@ export class Integrator {
 
 						// Check for initial overlap. This might happen if the root finder runs out of iterations.
 						if (s0 < -tolerance) {
+							state = "failed";
 							fraction = t0;
 							done = true;
 
@@ -127,6 +127,7 @@ export class Integrator {
 
 						// Check for touching.
 						if (s0 <= tolerance) {
+							state = "hit";
 							fraction = t0;
 							done = true;
 
@@ -136,12 +137,12 @@ export class Integrator {
 						// Compute root.
 						let a0 = t0;
 						let a1 = t1;
-						let rootFinderIteration = 0;
+						let rootFinderIterations = 0;
 
 						while (true) {
 							let t;
 
-							if (rootFinderIteration & 1) {
+							if (rootFinderIterations & 1) {
 								// False position
 								t = a0 - s0 * (a1 - a0) / (s1 - s0);
 							}
@@ -150,7 +151,7 @@ export class Integrator {
 								t = (a0 + a1) * 0.5;
 							}
 
-							rootFinderIteration++;
+							rootFinderIterations++;
 
 							const s = evaluateSeparation(f, output.indexA, output.indexB, t);
 
@@ -169,13 +170,27 @@ export class Integrator {
 								s1 = s;
 							}
 
-							if (rootFinderIteration == 50) {
+							if (rootFinderIterations == 50) {
 								break;
 							}
+						}
+
+						pushBackIterations++;
+
+						if (pushBackIterations == MAX_POLYGON_VERTICES) {
+							break;
 						}
 					}
 
 					if (done) {
+						break;
+					}
+
+					// Root finder got stuck.
+					if (distanceIterations == DISTANCE_MAX_ITERATIONS) {
+						state = "failed";
+						fraction = t0;
+
 						break;
 					}
 				}
@@ -236,13 +251,17 @@ function createSeparationFunction(A, B, gjk, t) {
 	}
 
 	if (gjk.closestFeature1.isVertex && gjk.closestFeature2.isEdge) {
-		// Point on A and edge on B.
+		// Point on A and edge on B. Use B as edge.
 		f.type = "edgeB";
 
 		const localPointB0 = B.geometry.vertices[gjk.closestFeature2.indices[0]];
 		const localPointB1 = B.geometry.vertices[gjk.closestFeature2.indices[1]];
 
 		f.axis = crossVS(new Vector2(localPointB1).subtract(localPointB0), 1).normalize();
+
+		const rotationB = B.rotationAt(t);
+		const normal = new Vector2(f.axis).multiplyMatrix(rotationB);
+
 		f.localPoint = new Vector2(localPointB0).add(localPointB1).multiplyScalar(0.5);
 
 		const pointB = new Vector2(f.localPoint).multiplyMatrix(transformB);
@@ -251,7 +270,6 @@ function createSeparationFunction(A, B, gjk, t) {
 
 		const pointA = new Vector2(localPointA).multiplyMatrix(transformA);
 
-		const normal = rotate(f.axis, B.rotation + B.angularVelocity * t);
 		const s = dot(new Vector2(pointA).subtract(pointB), normal);
 
 		if (s < 0) {
@@ -261,13 +279,17 @@ function createSeparationFunction(A, B, gjk, t) {
 		return f;
 	}
 
-	// Edge on A and point or edge on B.
+	// Edge on A and point or edge on B. Use A as edge.
 	f.type = "edgeA";
 
 	const localPointA0 = A.geometry.vertices[gjk.closestFeature1.indices[0]];
 	const localPointA1 = A.geometry.vertices[gjk.closestFeature1.indices[1]];
 
 	f.axis = crossVS(new Vector2(localPointA1).subtract(localPointA0), 1).normalize();
+
+	const rotationA = A.rotationAt(t);
+	const normal = new Vector2(f.axis).multiplyMatrix(rotationA);
+
 	f.localPoint = new Vector2(localPointA0).add(localPointA1).multiplyScalar(0.5);
 
 	const pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
@@ -276,7 +298,6 @@ function createSeparationFunction(A, B, gjk, t) {
 
 	const pointB = new Vector2(localPointB).multiplyMatrix(transformB);
 
-	const normal = rotate(f.axis, A.rotation + A.angularVelocity * t);
 	const s = dot(new Vector2(pointB).subtract(pointA), normal);
 
 	if (s < 0) {
@@ -299,8 +320,8 @@ function findMinSeparation(f, t) {
 
 	switch (f.type) {
 		case "points": {
-			const axisA = inverseRotate(f.axis, f.A.rotation + f.A.angularVelocity * t);
-			const axisB = inverseRotate(negate(f.axis), f.B.rotation + f.B.angularVelocity * t);
+			const axisA = new Vector2(f.axis).multiplyMatrix(inverse(rotationA));
+			const axisB = negate(f.axis).multiplyMatrix(inverse(rotationB));
 
 			output.indexA = f.A.supportBase(axisA);
 			output.indexB = f.B.supportBase(axisB);
@@ -363,6 +384,8 @@ function findMinSeparation(f, t) {
 function evaluateSeparation(f, indexA, indexB, t) {
 	const transformA = f.A.at(t);
 	const transformB = f.B.at(t);
+	const rotationA = f.A.rotationAt(t);
+	const rotationB = f.B.rotationAt(t);
 
 	switch (f.type) {
 		case "points": {
@@ -375,7 +398,7 @@ function evaluateSeparation(f, indexA, indexB, t) {
 			return dot(new Vector2(pointB).subtract(pointA), f.axis);
 		}
 		case "edgeA": {
-			const normal = rotate(f.axis, f.A.rotation + f.A.angularVelocity * t);
+			const normal = new Vector2(f.axis).multiplyMatrix(rotationA);
 
 			const pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
 
@@ -386,7 +409,7 @@ function evaluateSeparation(f, indexA, indexB, t) {
 			return dot(new Vector2(pointB).subtract(pointA), normal);
 		}
 		case "edgeB": {
-			const normal = rotate(f.axis, f.B.rotation + f.B.angularVelocity * t);
+			const normal = new Vector2(f.axis).multiplyMatrix(rotationB);
 
 			const pointB = new Vector2(f.localPoint).multiplyMatrix(transformB);
 
@@ -405,26 +428,4 @@ function evaluateSeparation(f, indexA, indexB, t) {
  */
 function crossVS(v, s) {
 	return new Vector2(s * v.y, -s * v.x);
-}
-
-/**
- * @param {import("./math/index.js").Vector2} v
- * @param {Number} a Angle in radians
- */
-function rotate(v, a) {
-	const c = cos(a);
-	const s = sin(a);
-
-	return new Vector2(c * v.x - s * v.y, s * v.x + c * v.y);
-}
-
-/**
- * @param {import("./math/index.js").Vector2} v
- * @param {Number} a Angle in radians
- */
-function inverseRotate(v, a) {
-	const c = cos(a);
-	const s = sin(a);
-
-	return new Vector2(c * v.x + s * v.y, -s * v.x + c * v.y);
 }

@@ -7,7 +7,7 @@ document.body.appendChild(application.getRenderer().getCanvas());
 
 await application.initialize();
 
-const plane = new Object(
+const polygon = new Object(
 	new Geometry([
 		new Vector2(-3, 0),
 		new Vector2(4, 0),
@@ -19,11 +19,11 @@ const plane = new Object(
 		strokeColor: Color.rgb(0, 0, 0),
 	}),
 );
-plane.label = "Plane";
-plane.position.set(new Vector2(0.45, -0.625));
-// plane.angularVelocity = radians(0.1);
-// plane.linearVelocity = new Vector2(0, -0.002);
-plane.updateTransform();
+polygon.label = "Polygon";
+polygon.position.set(new Vector2(0.45, -0.625));
+// polygon.angularVelocity = radians(0.1);
+// polygon.linearVelocity = new Vector2(0, -0.002);
+polygon.updateTransform();
 
 const triangle = new Object(
 	new Geometry([
@@ -37,11 +37,11 @@ const triangle = new Object(
 	}),
 );
 triangle.label = "Triangle";
-triangle.position.set(new Vector2(0, 2));
+triangle.position.set(new Vector2(0, 1.957));
 triangle.rotation = radians(-30);
-// triangle.angularVelocity = radians(0.4617);
+triangle.angularVelocity = radians(0.4617);
 // triangle.angularVelocity = radians(32.26);
-triangle.angularVelocity = radians(70);
+// triangle.angularVelocity = radians(70);
 
 // triangle.rotation += triangle.angularVelocity * 0.78759765625;
 // triangle.angularVelocity = 0;
@@ -65,7 +65,7 @@ cube.position.set(new Vector2(0, -1));
 cube.updateTransform();
 
 const scene = new Scene([
-	cube,
+	polygon,
 	triangle,
 ]);
 

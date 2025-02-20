@@ -48,16 +48,8 @@ export class Renderer {
 	 */
 	#scene = null;
 
-	/**
-	 * @type {?Number}
-	 */
-	hoveredObjectIndex = null;
-
-	/**
-	 * @type {?Number}
-	 */
-	draggedObjectIndex = null;
-
+	hoveredObjectIndex = -1;
+	draggedObjectIndex = -1;
 	drag = new Vector2(0, 0);
 
 	constructor() {
@@ -98,6 +90,10 @@ export class Renderer {
 			this.#renderObject(object, i);
 		}
 
+		if (this.draggedObjectIndex !== -1) {
+			this.#renderDraggedObject(objects[this.draggedObjectIndex]);
+		}
+
 		this.#setTransform(Matrix3.identity());
 
 		if (this.#scene.getGJKResponse() !== null) {
@@ -112,35 +108,6 @@ export class Renderer {
 	 * @param {Number} index
 	 */
 	#renderObject(object, index) {
-		const isDragged = this.draggedObjectIndex === index;
-
-		if (isDragged) {
-			const position = new Vector2(object.position).add(this.drag);
-			const transform = object.getTransform(position, object.rotation);
-
-			this.#setTransform(transform);
-
-			this.#context.beginPath();
-
-			for (let i = 0; i < object.geometry.vertices.length; i++) {
-				const P = object.geometry.vertices[i];
-
-				this.#context.lineTo(P.x, P.y);
-			}
-
-			this.#context.closePath();
-
-			this.#context.fillStyle = object.material.fillColor.withAlpha(0.5).toString();
-			this.#context.fill();
-
-			this.#context.setLineDash([0.1]);
-			this.#context.strokeStyle = object.material.strokeColor.withAlpha(0.5).toString();
-			this.#context.stroke();
-			this.#context.setLineDash([]);
-
-			this.#renderCenterOfMass(object.geometry.centerOfMass, 0.5);
-		}
-
 		this.#setTransform(object.transform);
 
 		this.#context.beginPath();
@@ -163,10 +130,12 @@ export class Renderer {
 			this.hoveredObjectIndex = index;
 		}
 		else {
-			if (this.draggedObjectIndex === null && this.hoveredObjectIndex === index) {
-				this.hoveredObjectIndex = null;
+			if (this.draggedObjectIndex === -1 && this.hoveredObjectIndex === index) {
+				this.hoveredObjectIndex = -1;
 			}
 		}
+
+		const isDragged = this.draggedObjectIndex === index;
 
 		if (isDragged) {
 			this.#context.lineWidth *= 2;
@@ -180,6 +149,36 @@ export class Renderer {
 		this.#context.lineWidth = 1 / this.#zoomLevel;
 
 		this.#renderCenterOfMass(object.geometry.centerOfMass, 1);
+	}
+
+	/**
+	 * @param {import("./index.js").Object} A
+	 */
+	#renderDraggedObject(A) {
+		const position = new Vector2(A.position).add(this.drag);
+		const transform = A.getTransform(position, A.rotation);
+
+		this.#setTransform(transform);
+
+		this.#context.beginPath();
+
+		for (let i = 0; i < A.geometry.vertices.length; i++) {
+			const P = A.geometry.vertices[i];
+
+			this.#context.lineTo(P.x, P.y);
+		}
+
+		this.#context.closePath();
+
+		this.#context.fillStyle = A.material.fillColor.withAlpha(0.5).toString();
+		this.#context.fill();
+
+		this.#context.setLineDash([0.1]);
+		this.#context.strokeStyle = A.material.strokeColor.withAlpha(0.5).toString();
+		this.#context.stroke();
+		this.#context.setLineDash([]);
+
+		this.#renderCenterOfMass(A.geometry.centerOfMass, 0.5);
 	}
 
 	/**
