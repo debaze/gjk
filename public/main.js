@@ -37,13 +37,13 @@ const triangle = new Object(
 	}),
 );
 triangle.label = "Triangle";
-triangle.position.set(new Vector2(-1, 1.9));
+triangle.position.set(new Vector2(0, 2));
 triangle.rotation = radians(-30);
-// triangle.angularVelocity = radians(0.4627);
-triangle.angularVelocity = radians(32.26);
+// triangle.angularVelocity = radians(0.4617);
+// triangle.angularVelocity = radians(32.26);
+triangle.angularVelocity = radians(70);
 
-// const toi = 2;
-// triangle.rotation += triangle.angularVelocity * toi;
+// triangle.rotation += triangle.angularVelocity * 0.78759765625;
 // triangle.angularVelocity = 0;
 
 triangle.updateTransform();

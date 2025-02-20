@@ -21,7 +21,6 @@ import {ClosestFeature} from "../src/ClosestFeature.js";
  * @property {import("../src/math/index.js").Vector2} closest1 Closest point on the closest feature on object 1
  * @property {import("../src/math/index.js").Vector2} closest2 Closest point on the closest feature on object 2
  * @property {Number} distance Distance between the closest points
- * @property {Boolean} overlap Whether the shapes are intersecting
  * @property {Simplex} [simplex] Visualization purposes
  */
 
@@ -79,17 +78,19 @@ class Simplex extends Array {
 }
 
 /**
- * @param {import("../src/index.js").Object} M1
- * @param {import("../src/index.js").Object} M2
+ * @param {import("../src/index.js").Object} A
+ * @param {import("../src/index.js").Object} B
+ * @param {import("../src/math/index.js").Matrix3} transformA
+ * @param {import("../src/math/index.js").Matrix3} transformB
  */
-export function GJK(M1, M2) {
+export function GJK(A, B, transformA, transformB) {
 	/**
 	 * @type {GJKResponse}
 	 */
 	const response = {};
 
-	response.object1 = M1;
-	response.object2 = M2;
+	response.object1 = A;
+	response.object2 = B;
 
 	// D = COM(M2) - COM(M1)
 	// const D = new Vector2(M2.geometry.centerOfMass).subtract(M1.geometry.centerOfMass);
@@ -100,10 +101,10 @@ export function GJK(M1, M2) {
 	S.push({});
 	S[0].index1 = 0;
 	S[0].index2 = 0;
-	const p1 = M1.geometry.vertices[S[0].index1];
-	const p2 = M2.geometry.vertices[S[0].index2];
-	S[0].vertex1 = new Vector2(p1).multiplyMatrix(M1.transform);
-	S[0].vertex2 = new Vector2(p2).multiplyMatrix(M2.transform);
+	const p1 = A.geometry.vertices[S[0].index1];
+	const p2 = B.geometry.vertices[S[0].index2];
+	S[0].vertex1 = new Vector2(p1).multiplyMatrix(transformA);
+	S[0].vertex2 = new Vector2(p2).multiplyMatrix(transformB);
 	S[0].vertex = new Vector2(S[0].vertex2).subtract(S[0].vertex1);
 	S[0].u = 1;
 	S.length = 1;
@@ -142,13 +143,13 @@ export function GJK(M1, M2) {
 
 		S.D = S.getSearchDirection();
 
-		if (S.D.x === 0 && S.D.y === 0) {
+		if (dot(S.D, S.D) < Number.EPSILON * Number.EPSILON) {
 			console.warn("[GJK]: Search direction is 0 (vertex overlap).");
 
-			break loop;
+			break;
 		}
 
-		const P = MinkowskiDifference.support(M1, M2, S.D);
+		const P = MinkowskiDifference.support(A, B, transformA, transformB, S.D);
 
 		for (let i = 0; i < saveCount; i++) {
 			if (P.index1 === save1[i] && P.index2 === save2[i]) {
@@ -346,7 +347,6 @@ function getClosestPointsOnPolygons(response, simplex) {
 		case 1:
 			response.closest1 = simplex[0].vertex1;
 			response.closest2 = simplex[0].vertex2;
-			response.overlap = false;
 
 			break;
 		case 2:
@@ -354,7 +354,6 @@ function getClosestPointsOnPolygons(response, simplex) {
 				.add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u * s));
 			response.closest2 = new Vector2(simplex[0].vertex2).multiplyScalar(simplex[0].u * s)
 				.add(new Vector2(simplex[1].vertex2).multiplyScalar(simplex[1].u * s));
-			response.overlap = false;
 
 			break;
 		case 3:
@@ -362,7 +361,6 @@ function getClosestPointsOnPolygons(response, simplex) {
 				.add(new Vector2(simplex[1].vertex1).multiplyScalar(simplex[1].u * s))
 				.add(new Vector2(simplex[2].vertex1).multiplyScalar(simplex[2].u * s));
 			response.closest2 = new Vector2(response.closest1);
-			response.overlap = true;
 
 			break;
 	}

@@ -17,20 +17,25 @@ import {dot, Matrix3, negate, transpose, Vector2} from "../src/math/index.js";
 
 export class MinkowskiDifference {
 	/**
-	 * @param {import("../src/index.js").Object} M1
-	 * @param {import("../src/index.js").Object} M2
+	 * @param {import("../src/index.js").Object} A
+	 * @param {import("../src/index.js").Object} B
+	 * @param {import("../src/math/index.js").Matrix3} transformA
+	 * @param {import("../src/math/index.js").Matrix3} transformB
 	 * @param {import("../src/math/index.js").Vector2} d Direction, not necessarily normalized
 	 */
-	static support(M1, M2, d) {
+	static support(A, B, transformA, transformB, d) {
 		/**
 		 * @type {import("./GJK.js").SimplexVertex}
 		 */
 		const vertex = {};
 
-		vertex.index1 = M1.supportBase(this.#mulT(this.#rotation(M1), negate(d)));
-		vertex.vertex1 = new Vector2(M1.geometry.vertices[vertex.index1]).multiplyMatrix(M1.transform);
-		vertex.index2 = M2.supportBase(this.#mulT(this.#rotation(M2), d));
-		vertex.vertex2 = new Vector2(M2.geometry.vertices[vertex.index2]).multiplyMatrix(M2.transform);
+		const rotationA = Matrix3.rotation(-A.rotation);
+		const rotationB = Matrix3.rotation(-B.rotation);
+
+		vertex.index1 = A.supportBase(this.#mulT(rotationA, negate(d)));
+		vertex.vertex1 = new Vector2(A.geometry.vertices[vertex.index1]).multiplyMatrix(A.transform);
+		vertex.index2 = B.supportBase(this.#mulT(rotationB, d));
+		vertex.vertex2 = new Vector2(B.geometry.vertices[vertex.index2]).multiplyMatrix(B.transform);
 		vertex.vertex = new Vector2(vertex.vertex2).subtract(vertex.vertex1);
 
 		return vertex;
@@ -46,12 +51,5 @@ export class MinkowskiDifference {
 
 		return new Vector2(dot(col0, vector), dot(col1, vector));
 		// return new Vector2(vector).multiplyMatrix(transpose(transform));
-	}
-
-	/**
-	 * @param {import("../src/index.js").Object} M
-	 */
-	static #rotation(M) {
-		return Matrix3.rotation(-M.rotation);
 	}
 }

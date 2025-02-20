@@ -157,6 +157,13 @@ export class Object {
 	}
 
 	/**
+	 * @param {Number} t
+	 */
+	rotationAt(t) {
+		return Matrix3.rotation(this.#rotation + this.#angularVelocity * t);
+	}
+
+	/**
 	 * @param {import("../src/math/index.js").Vector2} D Direction
 	 */
 	support(D) {
@@ -199,15 +206,15 @@ export class Object {
 	 * @param {import("../src/math/index.js").Vector2} d
 	 */
 	supportBase(d) {
+		let maxValue = dot(this.#geometry.vertices[0], d);
 		let maxIndex = 0;
-		let maxValue = dot(this.#geometry.vertices[maxIndex], d);
 
 		for (let i = 1; i < this.#geometry.vertices.length; i++) {
-			let value = dot(this.#geometry.vertices[i], d);
+			const value = dot(this.#geometry.vertices[i], d);
 
 			if (value > maxValue) {
-				maxIndex = i;
 				maxValue = value;
+				maxIndex = i;
 			}
 		}
 

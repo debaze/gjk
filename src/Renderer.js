@@ -404,7 +404,7 @@ export class Renderer {
 
 		const textLines = [
 			`Position: (${this.#mouse.x.toFixed(3)}, ${this.#mouse.y.toFixed(3)})`,
-			`Overlap: ${this.#scene.getGJKResponse()?.overlap ?? "-"}`,
+			`Overlap: ${this.#scene.getGJKResponse()?.distance <= 0 ? "yes" : "no"}`,
 			`Hovering object: ${this.hoveredObjectIndex ?? "-"}`,
 			`Dragging object: ${this.draggedObjectIndex ?? "-"}`,
 		];
