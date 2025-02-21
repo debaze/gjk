@@ -31,7 +31,7 @@ let maxRecordedIterations = 0;
 /**
  * @param {Boolean} condition
  */
-function assert(condition) {
+export function assert(condition) {
 	if (!condition) {
 		throw new Error("Assertion failed");
 	}

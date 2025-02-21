@@ -1,6 +1,6 @@
-import {abs, cos, dot, inverse, negate, sin, Vector2} from "./math/index.js";
+import {abs, cos, dot, inverse, max, negate, sin, Vector2} from "./math/index.js";
 
-import {GJK} from "../public/GJK.js";
+import {assert, GJK} from "../public/GJK.js";
 
 const MAX_POLYGON_VERTICES = 8;
 
@@ -51,11 +51,14 @@ export class Integrator {
 				const A = objects[i];
 				const B = objects[j];
 
-				const tolerance = 0.25 * 0.005;
-
 				let t0 = 0;
 				let fraction = 0;
 				let state = "";
+
+				const tolerance = 0.25 * 0.005;
+				const target = 0.005;
+
+				assert(target > tolerance);
 
 				let distanceIterations = 0;
 
@@ -78,11 +81,11 @@ export class Integrator {
 						break;
 					}
 
-					if (abs(gjk.distance) <= tolerance) {
+					if (gjk.distance <= target + tolerance) {
 						state = "hit";
 						fraction = t0;
 
-						console.info("TOI:", fraction);
+						console.info("TOI =", fraction);
 
 						break;
 					}
@@ -98,7 +101,7 @@ export class Integrator {
 						let s1 = output.separation;
 
 						// Is the configuration separated at t1?
-						if (s1 > tolerance) {
+						if (s1 > target + tolerance) {
 							state = "separated";
 							fraction = 1;
 							done = true;
@@ -107,7 +110,7 @@ export class Integrator {
 						}
 
 						// Has the separation reached tolerance?
-						if (s1 > -tolerance) {
+						if (s1 > target - tolerance) {
 							t0 = t1;
 
 							break;
@@ -117,7 +120,7 @@ export class Integrator {
 						let s0 = evaluateSeparation(f, output.indexA, output.indexB, t0);
 
 						// Check for initial overlap. This might happen if the root finder runs out of iterations.
-						if (s0 < -tolerance) {
+						if (s0 < target - tolerance) {
 							state = "failed";
 							fraction = t0;
 							done = true;
@@ -126,10 +129,12 @@ export class Integrator {
 						}
 
 						// Check for touching.
-						if (s0 <= tolerance) {
+						if (s0 <= target + tolerance) {
 							state = "hit";
 							fraction = t0;
 							done = true;
+
+							console.log("TOI =", fraction);
 
 							break;
 						}
@@ -144,7 +149,7 @@ export class Integrator {
 
 							if (rootFinderIterations & 1) {
 								// False position
-								t = a0 - s0 * (a1 - a0) / (s1 - s0);
+								t = a0 + (target - s0) * (a1 - a0) / (s1 - s0);
 							}
 							else {
 								// Bisection
@@ -155,13 +160,13 @@ export class Integrator {
 
 							const s = evaluateSeparation(f, output.indexA, output.indexB, t);
 
-							if (abs(s) < tolerance) {
+							if (abs(s - target) < tolerance) {
 								t1 = t;
 
 								break;
 							}
 
-							if (s > 0) {
+							if (s > target) {
 								a0 = t;
 								s0 = s;
 							}
