@@ -48,21 +48,39 @@ triangle.angularVelocity = radians(0.4617);
 
 triangle.updateTransform();
 
-const cube = new Object(
+const cube1 = new Object(
 	new Geometry([
-		new Vector2(-4, 1),
-		new Vector2(4, 1),
-		new Vector2(4, -1),
-		new Vector2(-4, -1),
+		new Vector2(-1, 1),
+		new Vector2(1, 1),
+		new Vector2(1, -1),
+		new Vector2(-1, -1),
 	]),
 	new Material({
 		fillColor: Color.rgb(244, 254, 219),
 		strokeColor: Color.rgb(0, 0, 0),
 	}),
 );
-cube.label = "Cube";
-cube.position.set(new Vector2(0, -1));
-cube.updateTransform();
+cube1.label = "Cube 1";
+cube1.position.set(new Vector2(-3, -3));
+cube1.linearVelocity.set(new Vector2(0.02, 0.02));
+cube1.updateTransform();
+
+const cube2 = new Object(
+	new Geometry([
+		new Vector2(-1, 1),
+		new Vector2(1, 1),
+		new Vector2(1, -1),
+		new Vector2(-1, -1),
+	]),
+	new Material({
+		fillColor: Color.rgb(244, 254, 219),
+		strokeColor: Color.rgb(0, 0, 0),
+	}),
+);
+cube2.label = "Cube 2";
+cube2.position.set(new Vector2(3, -3));
+cube2.linearVelocity.set(new Vector2(-0.02, 0.02));
+cube2.updateTransform();
 
 const scene = new Scene([
 	polygon,

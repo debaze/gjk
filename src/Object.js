@@ -200,7 +200,7 @@ export class Object {
 	}
 
 	/**
-	 * Returns the index of the point furthest in the direction of d.
+	 * Returns the index of the point farthest in the direction of d.
 	 * No transformation applied.
 	 * 
 	 * @param {import("../src/math/index.js").Vector2} d

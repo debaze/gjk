@@ -1,15 +1,9 @@
-import {abs, cos, dot, inverse, max, negate, sin, Vector2} from "./math/index.js";
+import {abs, distance, dot, inverse, negate, Vector2} from "./math/index.js";
 
 import {assert, GJK} from "../public/GJK.js";
 
-const MAX_POLYGON_VERTICES = 8;
-
 const DISTANCE_MAX_ITERATIONS = 20;
-const DEEPEST_POINT_SOLVER_MAX_ITERATIONS = 32;
-
-/**
- * @typedef {(t: Number, p: import("./math/index.js").Vector2) => Number} SeparationFunctionOld
- */
+const MAX_POLYGON_VERTICES = 8;
 
 /**
  * @typedef {"points"|"edgeA"|"edgeB"} SeparationType
@@ -20,8 +14,18 @@ const DEEPEST_POINT_SOLVER_MAX_ITERATIONS = 32;
  * @property {import("./index.js").Object} A
  * @property {import("./index.js").Object} B
  * @property {import("./math/index.js").Vector2} localPoint
- * @property {import("./math/index.js").Vector2} axis Separating axis
+ * @property {import("./math/index.js").Vector2} axis Separating axis.
  * @property {SeparationType} type
+ */
+
+/**
+ * @typedef {"undetermined"|"hit"|"failed"|"separated"|"overlapped"} ContinuousCollisionState
+ */
+
+/**
+ * @typedef {Object} ContinuousCollisionOutput
+ * @property {ContinuousCollisionState} state
+ * @property {Number} fraction Time of impact if hit.
  */
 
 export class Integrator {
@@ -34,14 +38,6 @@ export class Integrator {
 	update(scene, frameIndex) {
 		const objects = scene.getObjects();
 
-		/* {
-			for (let i = 0; i < objects.length; i++) {
-				advanceSimulation(objects[i], 1);
-			}
-
-			return;
-		} */
-
 		if (!this.#integrationEnabled) {
 			return;
 		}
@@ -51,157 +47,51 @@ export class Integrator {
 				const A = objects[i];
 				const B = objects[j];
 
-				let t0 = 0;
-				let fraction = 0;
-				let state = "";
+				const output = evaluateContinuousCollision(A, B, scene);
 
-				const tolerance = 0.25 * 0.005;
-				const target = 0.005;
+				console.log("Fraction =", output.fraction);
 
-				assert(target > tolerance);
+				advanceSimulation(A, output.fraction);
+				advanceSimulation(B, output.fraction);
 
-				let distanceIterations = 0;
+				if (output.state === "hit") {
+					const gjk = GJK(A, B, A.transform, B.transform);
+					const collisionNormal = new Vector2(B.position).subtract(A.position).normalize();
 
-				while (true) {
-					const transformA = A.at(t0);
-					const transformB = B.at(t0);
-					const gjk = GJK(A, B, transformA, transformB);
+					// The coefficient of restitution must at least be > 0.25 to separate the shapes.
+					const CrA = 1;
+					const CrB = 1;
 
-					scene.setGJKResponse(gjk);
+					const mA = 1;
+					const mB = 1;
 
-					distanceIterations++;
+					const vA_vB_n = dot(new Vector2(A.linearVelocity).subtract(B.linearVelocity), collisionNormal);
+					const invmA_invmB = 1 / mA + 1 / mB;
 
-					// If the shapes are overlapped, we give up on continuous collision.
-					if (gjk.distance <= 0) {
-						state = "overlapped";
-						fraction = 0;
+					// Linear impulse.
+					{
+						const jA = (-(1 + CrA) * vA_vB_n) / invmA_invmB;
+						const jB = (-(1 + CrB) * vA_vB_n) / invmA_invmB;
 
-						console.error("Shapes are overlapping");
+						const impA = new Vector2(collisionNormal).multiplyScalar(jA / mA);
+						const impB = new Vector2(collisionNormal).multiplyScalar(-jB / mB);
 
-						break;
+						A.linearVelocity.add(impA);
+						B.linearVelocity.add(impB);
 					}
 
-					if (gjk.distance <= target + tolerance) {
-						state = "hit";
-						fraction = t0;
+					// Angular impulse.
+					{
+						const rA = distance(gjk.closest1, A.geometry.centerOfMass);
+						const rB = distance(gjk.closest2, B.geometry.centerOfMass);
 
-						console.info("TOI =", fraction);
-
-						break;
+						let jA_div = new Vector2(collisionNormal).multiplyScalar(rA);
+						const jA = (-(1 + CrA) * vA_vB_n) / (invmA_invmB + dot(jA_div, collisionNormal));
 					}
 
-					const f = createSeparationFunction(A, B, gjk, t0);
-
-					let t1 = 1;
-					let done = false;
-					let pushBackIterations = 0;
-
-					while (true) {
-						const output = findMinSeparation(f, t1);
-						let s1 = output.separation;
-
-						// Is the configuration separated at t1?
-						if (s1 > target + tolerance) {
-							state = "separated";
-							fraction = 1;
-							done = true;
-
-							break;
-						}
-
-						// Has the separation reached tolerance?
-						if (s1 > target - tolerance) {
-							t0 = t1;
-
-							break;
-						}
-
-						// Compute the initial separation of the witness points.
-						let s0 = evaluateSeparation(f, output.indexA, output.indexB, t0);
-
-						// Check for initial overlap. This might happen if the root finder runs out of iterations.
-						if (s0 < target - tolerance) {
-							state = "failed";
-							fraction = t0;
-							done = true;
-
-							break;
-						}
-
-						// Check for touching.
-						if (s0 <= target + tolerance) {
-							state = "hit";
-							fraction = t0;
-							done = true;
-
-							console.log("TOI =", fraction);
-
-							break;
-						}
-
-						// Compute root.
-						let a0 = t0;
-						let a1 = t1;
-						let rootFinderIterations = 0;
-
-						while (true) {
-							let t;
-
-							if (rootFinderIterations & 1) {
-								// False position
-								t = a0 + (target - s0) * (a1 - a0) / (s1 - s0);
-							}
-							else {
-								// Bisection
-								t = (a0 + a1) * 0.5;
-							}
-
-							rootFinderIterations++;
-
-							const s = evaluateSeparation(f, output.indexA, output.indexB, t);
-
-							if (abs(s - target) < tolerance) {
-								t1 = t;
-
-								break;
-							}
-
-							if (s > target) {
-								a0 = t;
-								s0 = s;
-							}
-							else {
-								a1 = t;
-								s1 = s;
-							}
-
-							if (rootFinderIterations == 50) {
-								break;
-							}
-						}
-
-						pushBackIterations++;
-
-						if (pushBackIterations == MAX_POLYGON_VERTICES) {
-							break;
-						}
-					}
-
-					if (done) {
-						break;
-					}
-
-					// Root finder got stuck.
-					if (distanceIterations == DISTANCE_MAX_ITERATIONS) {
-						state = "failed";
-						fraction = t0;
-
-						break;
-					}
+					advanceSimulation(A, 1 - output.fraction);
+					advanceSimulation(B, 1 - output.fraction);
 				}
-
-				advanceSimulation(A, fraction);
-				advanceSimulation(B, fraction);
 			}
 		}
 	}
@@ -433,4 +323,170 @@ function evaluateSeparation(f, indexA, indexB, t) {
  */
 function crossVS(v, s) {
 	return new Vector2(s * v.y, -s * v.x);
+}
+
+/**
+ * @param {import("./index.js").Object} A
+ * @param {import("./index.js").Object} B
+ * @param {import("./index.js").Scene} [scene] Used to debug GJK output.
+ */
+function evaluateContinuousCollision(A, B, scene) {
+	/**
+	 * @type {ContinuousCollisionOutput}
+	 */
+	const output = {};
+
+	output.state = "undetermined";
+	output.fraction = 0;
+
+	let t0 = 0;
+
+	const tolerance = 0.25 * 0.005;
+	const target = 0.005;
+
+	assert(target > tolerance);
+
+	let distanceIterations = 0;
+
+	while (true) {
+		const transformA = A.at(t0);
+		const transformB = B.at(t0);
+		const gjk = GJK(A, B, transformA, transformB);
+
+		if (scene) {
+			scene.setGJKResponse(gjk);
+		}
+
+		distanceIterations++;
+
+		// If the shapes are overlapped, we give up on continuous collision.
+		if (gjk.distance <= 0) {
+			output.state = "overlapped";
+			output.fraction = 0;
+
+			console.error("Shapes are overlapping.");
+
+			break;
+		}
+
+		if (gjk.distance <= target + tolerance) {
+			output.state = "hit";
+			output.fraction = t0;
+
+			break;
+		}
+
+		const f = createSeparationFunction(A, B, gjk, t0);
+
+		let t1 = 1;
+		let done = false;
+		let pushBackIterations = 0;
+
+		while (true) {
+			const separationOutput = findMinSeparation(f, t1);
+			let s1 = separationOutput.separation;
+
+			// Is the configuration separated at t1?
+			if (s1 > target + tolerance) {
+				output.state = "separated";
+				output.fraction = 1;
+				done = true;
+
+				break;
+			}
+
+			// Has the separation reached tolerance?
+			if (s1 > target - tolerance) {
+				t0 = t1;
+
+				break;
+			}
+
+			// Compute the initial separation of the witness points.
+			let s0 = evaluateSeparation(f, separationOutput.indexA, separationOutput.indexB, t0);
+
+			// Check for initial overlap. This might happen if the root finder runs out of iterations.
+			if (s0 < target - tolerance) {
+				output.state = "failed";
+				output.fraction = t0;
+				done = true;
+
+				console.error("Initial overlap found.");
+
+				break;
+			}
+
+			// Check for touching.
+			if (s0 <= target + tolerance) {
+				output.state = "hit";
+				output.fraction = t0;
+				done = true;
+
+				break;
+			}
+
+			// Compute root.
+			let a0 = t0;
+			let a1 = t1;
+			let rootFinderIterations = 0;
+
+			while (true) {
+				let t;
+
+				if (rootFinderIterations & 1) {
+					// False position
+					t = a0 + (target - s0) * (a1 - a0) / (s1 - s0);
+				}
+				else {
+					// Bisection
+					t = (a0 + a1) * 0.5;
+				}
+
+				rootFinderIterations++;
+
+				const s = evaluateSeparation(f, separationOutput.indexA, separationOutput.indexB, t);
+
+				if (abs(s - target) < tolerance) {
+					t1 = t;
+
+					break;
+				}
+
+				if (s > target) {
+					a0 = t;
+					s0 = s;
+				}
+				else {
+					a1 = t;
+					s1 = s;
+				}
+
+				if (rootFinderIterations == 50) {
+					break;
+				}
+			}
+
+			pushBackIterations++;
+
+			if (pushBackIterations == MAX_POLYGON_VERTICES) {
+				break;
+			}
+		}
+
+		if (done) {
+			break;
+		}
+
+		// Root finder got stuck.
+		if (distanceIterations == DISTANCE_MAX_ITERATIONS) {
+			output.state = "failed";
+			output.fraction = t0;
+
+			console.error("Root finder failure.");
+
+			break;
+		}
+	}
+
+	return output;
 }
