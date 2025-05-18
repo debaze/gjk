@@ -49,12 +49,10 @@ export class Integrator {
 
 				const output = evaluateContinuousCollision(A, B, scene);
 
-				console.log("Fraction =", output.fraction);
-
 				advanceSimulation(A, output.fraction);
 				advanceSimulation(B, output.fraction);
 
-				if (output.state === "hit") {
+				/*if (output.state === "hit") {
 					const gjk = GJK(A, B, A.transform, B.transform);
 					const collisionNormal = new Vector2(B.position).subtract(A.position).normalize();
 
@@ -91,7 +89,7 @@ export class Integrator {
 
 					advanceSimulation(A, 1 - output.fraction);
 					advanceSimulation(B, 1 - output.fraction);
-				}
+				}*/
 			}
 		}
 	}
@@ -213,61 +211,56 @@ function findMinSeparation(f, t) {
 	const rotationA = f.A.rotationAt(t);
 	const rotationB = f.B.rotationAt(t);
 
+	let normal;
+	let pointA;
+	let pointB;
+
 	switch (f.type) {
 		case "points": {
+			normal = f.axis;
+
 			const axisA = new Vector2(f.axis).multiplyMatrix(inverse(rotationA));
 			const axisB = negate(f.axis).multiplyMatrix(inverse(rotationB));
 
 			output.indexA = f.A.supportBase(axisA);
 			output.indexB = f.B.supportBase(axisB);
 
-			const localPointA = f.A.geometry.vertices[output.indexA];
-			const localPointB = f.B.geometry.vertices[output.indexB];
+			pointA = new Vector2(f.A.geometry.vertices[output.indexA]).multiplyMatrix(transformA);
+			pointB = new Vector2(f.B.geometry.vertices[output.indexB]).multiplyMatrix(transformB);
 
-			const pointA = new Vector2(localPointA).multiplyMatrix(transformA);
-			const pointB = new Vector2(localPointB).multiplyMatrix(transformB);
-
-			output.separation = dot(new Vector2(pointB).subtract(pointA), f.axis);
-
-			return output;
+			break;
 		}
 		case "edgeA": {
-			const normal = new Vector2(f.axis).multiplyMatrix(rotationA);
-
-			const pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
+			normal = new Vector2(f.axis).multiplyMatrix(rotationA);
 
 			const axisB = negate(normal).multiplyMatrix(inverse(rotationB));
 
 			output.indexA = -1;
 			output.indexB = f.B.supportBase(axisB);
 
-			const localPointB = f.B.geometry.vertices[output.indexB];
+			pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
+			pointB = new Vector2(f.B.geometry.vertices[output.indexB]).multiplyMatrix(transformB);
 
-			const pointB = new Vector2(localPointB).multiplyMatrix(transformB);
-
-			output.separation = dot(new Vector2(pointB).subtract(pointA), normal);
-
-			return output;
+			break;
 		}
 		case "edgeB": {
-			const normal = new Vector2(f.axis).multiplyMatrix(rotationB);
-
-			const pointB = new Vector2(f.localPoint).multiplyMatrix(transformB);
+			normal = new Vector2(f.axis).multiplyMatrix(rotationB);
 
 			const axisA = negate(normal).multiplyMatrix(inverse(rotationA));
 
 			output.indexA = f.A.supportBase(axisA);
 			output.indexB = -1;
 
-			const localPointA = f.A.geometry.vertices[output.indexA];
+			pointA = new Vector2(f.localPoint).multiplyMatrix(transformB);
+			pointB = new Vector2(f.A.geometry.vertices[output.indexA]).multiplyMatrix(transformA);
 
-			const pointA = new Vector2(localPointA).multiplyMatrix(transformA);
-
-			output.separation = dot(new Vector2(pointA).subtract(pointB), normal);
-
-			return output;
+			break;
 		}
 	}
+
+	output.separation = dot(new Vector2(pointB).subtract(pointA), normal);
+
+	return output;
 }
 
 /**
@@ -279,42 +272,43 @@ function findMinSeparation(f, t) {
 function evaluateSeparation(f, indexA, indexB, t) {
 	const transformA = f.A.at(t);
 	const transformB = f.B.at(t);
-	const rotationA = f.A.rotationAt(t);
-	const rotationB = f.B.rotationAt(t);
+
+	let normal;
+	let pointA;
+	let pointB;
 
 	switch (f.type) {
-		case "points": {
-			const localPointA = f.A.geometry.vertices[indexA];
-			const localPointB = f.B.geometry.vertices[indexB];
+		case "points":
+			normal = f.axis;
+			pointA = new Vector2(f.A.geometry.vertices[indexA]).multiplyMatrix(transformA);
+			pointB = new Vector2(f.B.geometry.vertices[indexB]).multiplyMatrix(transformB);
 
-			const pointA = new Vector2(localPointA).multiplyMatrix(transformA);
-			const pointB = new Vector2(localPointB).multiplyMatrix(transformB);
-
-			return dot(new Vector2(pointB).subtract(pointA), f.axis);
-		}
+			break;
 		case "edgeA": {
-			const normal = new Vector2(f.axis).multiplyMatrix(rotationA);
+			const rotationA = f.A.rotationAt(t);
 
-			const pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
+			normal = new Vector2(f.axis).multiplyMatrix(rotationA);
+			pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
+			pointB = new Vector2(f.B.geometry.vertices[indexB]).multiplyMatrix(transformB);
 
-			const localPointB = f.B.geometry.vertices[indexB];
-
-			const pointB = new Vector2(localPointB).multiplyMatrix(transformB);
-
-			return dot(new Vector2(pointB).subtract(pointA), normal);
+			break;
 		}
 		case "edgeB": {
-			const normal = new Vector2(f.axis).multiplyMatrix(rotationB);
+			const rotationB = f.B.rotationAt(t);
 
-			const pointB = new Vector2(f.localPoint).multiplyMatrix(transformB);
+			normal = new Vector2(f.axis).multiplyMatrix(rotationB);
+			pointA = new Vector2(f.localPoint).multiplyMatrix(transformB);
+			pointB = new Vector2(f.A.geometry.vertices[indexA]).multiplyMatrix(transformA);
 
-			const localPointA = f.A.geometry.vertices[indexA];
-
-			const pointA = new Vector2(localPointA).multiplyMatrix(transformA);
-
-			return dot(new Vector2(pointA).subtract(pointB), normal);
+			break;
 		}
+		default:
+			assert(false);
+
+			break;
 	}
+
+	return dot(new Vector2(pointB).subtract(pointA), normal);
 }
 
 /**
@@ -364,7 +358,7 @@ function evaluateContinuousCollision(A, B, scene) {
 			output.state = "overlapped";
 			output.fraction = 0;
 
-			console.error("Shapes are overlapping.");
+			// console.error("Shapes are overlapping.");
 
 			break;
 		}

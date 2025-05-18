@@ -4,7 +4,7 @@ import {ClosestFeature} from "../src/ClosestFeature.js";
 
 /**
  * @typedef {Object} SimplexVertex
- * @property {import("../src/math/index.js").Vector2} vertex vertex1 - vertex2
+ * @property {import("../src/math/index.js").Vector2} vertex vertex2 - vertex1
  * @property {import("../src/math/index.js").Vector2} vertex1 Transformed support point on shape 1
  * @property {import("../src/math/index.js").Vector2} vertex2 Transformed support point on shape 2
  * @property {Number} index1 Index on shape 1
@@ -195,25 +195,12 @@ export function ClosestPointTriangle(simplex, p) {
 	const b = simplex[1].vertex;
 	const c = simplex[2].vertex;
 
-	const ab = new Vector2(b).subtract(a);
-	const bc = new Vector2(c).subtract(b);
-	const ca = new Vector2(a).subtract(c);
-	const ac = new Vector2(c).subtract(a);
-	const ba = new Vector2(a).subtract(b);
-	const cb = new Vector2(b).subtract(c);
 	const ap = new Vector2(p).subtract(a);
-	const bp = new Vector2(p).subtract(b);
-	const cp = new Vector2(p).subtract(c);
-	const pa = new Vector2(a).subtract(p);
-	const pb = new Vector2(b).subtract(p);
-	const pc = new Vector2(c).subtract(p);
+	const ab = new Vector2(b).subtract(a);
+	const ac = new Vector2(c).subtract(a);
 
-	let uAB = dot(bp, ba);
-	let vAB = dot(ap, ab);
-	let uBC = dot(cp, cb);
-	let vBC = dot(bp, bc);
-	let uCA = dot(ap, ac);
-	let vCA = dot(cp, ca);
+	const vAB = dot(ap, ab);
+	const uCA = dot(ap, ac);
 
 	if (vAB <= 0 && uCA <= 0) {
 		// In region A.
@@ -224,6 +211,13 @@ export function ClosestPointTriangle(simplex, p) {
 		return;
 	}
 
+	const bp = new Vector2(p).subtract(b);
+	const bc = new Vector2(c).subtract(b);
+	const ba = new Vector2(a).subtract(b);
+
+	const uAB = dot(bp, ba);
+	const vBC = dot(bp, bc);
+
 	if (uAB <= 0 && vBC <= 0) {
 		// In region B.
 		simplex[0] = simplex[1];
@@ -233,6 +227,13 @@ export function ClosestPointTriangle(simplex, p) {
 
 		return;
 	}
+
+	const cp = new Vector2(p).subtract(c);
+	const ca = new Vector2(a).subtract(c);
+	const cb = new Vector2(b).subtract(c);
+
+	const uBC = dot(cp, cb);
+	const vCA = dot(cp, ca);
 
 	if (uBC <= 0 && vCA <= 0) {
 		// In region C.
@@ -246,6 +247,10 @@ export function ClosestPointTriangle(simplex, p) {
 
 	// Compute signed triangle area.
 	const area = cross(ab, ac);
+
+	const pa = new Vector2(a).subtract(p);
+	const pb = new Vector2(b).subtract(p);
+	const pc = new Vector2(c).subtract(p);
 
 	// Compute triangle barycentric coordinates (pre-division).
 	const uABC = cross(pb, pc);
@@ -288,9 +293,11 @@ export function ClosestPointTriangle(simplex, p) {
 		return;
 	}
 
-	// In region ABC.
+	// Without CCD, this throws when the shapes separate after an intersection.
+	// With CCD, this is never reached since no intersection should ever occur.
 	// assert(uABC > 0 && vABC > 0 && wABC > 0);
 
+	// In region ABC.
 	simplex[0].u = uABC;
 	simplex[1].u = vABC;
 	simplex[2].u = wABC;
@@ -307,8 +314,7 @@ export function ClosestPointLine(simplex, p) {
 	const b = simplex[1].vertex;
 	const ab = new Vector2(b).subtract(a);
 
-	const u = dot(new Vector2(p).subtract(b), new Vector2(a).subtract(b)); // dot(p - b, a - b)
-	const v = dot(new Vector2(p).subtract(a), new Vector2(b).subtract(a)); // dot(p - a, b - a)
+	const v = dot(new Vector2(p).subtract(a), ab);
 
 	if (v <= 0) {
 		// In region A.
@@ -318,6 +324,8 @@ export function ClosestPointLine(simplex, p) {
 
 		return;
 	}
+
+	const u = dot(new Vector2(p).subtract(b), new Vector2(a).subtract(b));
 
 	if (u <= 0) {
 		// In region B.
