@@ -157,13 +157,6 @@ export class Object {
 	}
 
 	/**
-	 * @param {Number} t
-	 */
-	rotationAt(t) {
-		return Matrix3.rotation(this.#rotation + this.#angularVelocity * t);
-	}
-
-	/**
 	 * @param {import("../src/math/index.js").Vector2} D Direction
 	 */
 	support(D) {

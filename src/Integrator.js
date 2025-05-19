@@ -1,4 +1,4 @@
-import {abs, distance, dot, inverse, negate, Vector2} from "./math/index.js";
+import {abs, dot, inverse, Matrix3, negate, Vector2} from "./math/index.js";
 
 import {assert, GJK} from "../public/GJK.js";
 
@@ -11,8 +11,6 @@ const MAX_POLYGON_VERTICES = 8;
 
 /**
  * @typedef {Object} SeparationFunction
- * @property {import("./index.js").Object} A
- * @property {import("./index.js").Object} B
  * @property {import("./math/index.js").Vector2} localPoint
  * @property {import("./math/index.js").Vector2} axis Separating axis.
  * @property {SeparationType} type
@@ -121,9 +119,6 @@ function createSeparationFunction(A, B, gjk, t) {
 	 */
 	const f = {};
 
-	f.A = A;
-	f.B = B;
-
 	const transformA = A.at(t);
 	const transformB = B.at(t);
 
@@ -137,63 +132,49 @@ function createSeparationFunction(A, B, gjk, t) {
 		const pointA = new Vector2(localPointA).multiplyMatrix(transformA);
 		const pointB = new Vector2(localPointB).multiplyMatrix(transformB);
 
-		f.axis = new Vector2(pointB).subtract(pointA).normalize();
+		f.axis = new Vector2(pointB).subtract(pointA);//.normalize();
 		f.localPoint = new Vector2(0, 0);
 
 		return f;
 	}
 
-	if (gjk.closestFeature1.isVertex && gjk.closestFeature2.isEdge) {
-		// Point on A and edge on B. Use B as edge.
-		f.type = "edgeB";
+	assert(gjk.closestFeature1.isEdge || gjk.closestFeature2.isEdge);
 
-		const localPointB0 = B.geometry.vertices[gjk.closestFeature2.indices[0]];
-		const localPointB1 = B.geometry.vertices[gjk.closestFeature2.indices[1]];
-
-		f.axis = crossVS(new Vector2(localPointB1).subtract(localPointB0), 1).normalize();
-
-		const rotationB = B.rotationAt(t);
-		const normal = new Vector2(f.axis).multiplyMatrix(rotationB);
-
-		f.localPoint = new Vector2(localPointB0).add(localPointB1).multiplyScalar(0.5);
-
-		const pointB = new Vector2(f.localPoint).multiplyMatrix(transformB);
-
-		const localPointA = A.geometry.vertices[gjk.closestFeature1.indices[0]];
-
-		const pointA = new Vector2(localPointA).multiplyMatrix(transformA);
-
-		const s = dot(new Vector2(pointA).subtract(pointB), normal);
-
-		if (s < 0) {
-			f.axis = negate(f.axis);
-		}
-
-		return f;
-	}
-
-	// Edge on A and point or edge on B. Use A as edge.
+	// Start by assuming that the edge feature is on A.
 	f.type = "edgeA";
 
-	const localPointA0 = A.geometry.vertices[gjk.closestFeature1.indices[0]];
-	const localPointA1 = A.geometry.vertices[gjk.closestFeature1.indices[1]];
+	let vertexObject = B;
+	let edgeObject = A;
+	let vertexObjectTransform = transformB;
+	let edgeObjectTransform = transformA;
+	let vertexFeature = gjk.closestFeature2;
+	let edgeFeature = gjk.closestFeature1;
 
-	f.axis = crossVS(new Vector2(localPointA1).subtract(localPointA0), 1).normalize();
+	if (!gjk.closestFeature1.isEdge) {
+		f.type = "edgeB";
 
-	const rotationA = A.rotationAt(t);
-	const normal = new Vector2(f.axis).multiplyMatrix(rotationA);
+		vertexObject = A;
+		edgeObject = B;
+		vertexObjectTransform = transformA;
+		edgeObjectTransform = transformB;
+		vertexFeature = gjk.closestFeature1;
+		edgeFeature = gjk.closestFeature2;
+	}
 
-	f.localPoint = new Vector2(localPointA0).add(localPointA1).multiplyScalar(0.5);
+	const edgeLocalPoint0 = edgeObject.geometry.vertices[edgeFeature.indices[0]];
+	const edgeLocalPoint1 = edgeObject.geometry.vertices[edgeFeature.indices[1]];
 
-	const pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
+	f.axis = perpendicularRight(new Vector2(edgeLocalPoint1).subtract(edgeLocalPoint0));
 
-	const localPointB = B.geometry.vertices[gjk.closestFeature2.indices[0]];
+	const rotation = Matrix3.rotation(edgeObject.rotation + edgeObject.angularVelocity * t);
+	const normal = new Vector2(f.axis).multiplyMatrix(rotation);
 
-	const pointB = new Vector2(localPointB).multiplyMatrix(transformB);
+	f.localPoint = new Vector2(edgeLocalPoint0).lerp(edgeLocalPoint1, 0.5);
 
-	const s = dot(new Vector2(pointB).subtract(pointA), normal);
+	const edgePoint = new Vector2(f.localPoint).multiplyMatrix(edgeObjectTransform);
+	const vertexPoint = new Vector2(vertexObject.geometry.vertices[vertexFeature.indices[0]]).multiplyMatrix(vertexObjectTransform);
 
-	if (s < 0) {
+	if (dot(new Vector2(vertexPoint).subtract(edgePoint), normal) < 0) {
 		f.axis = negate(f.axis);
 	}
 
@@ -202,121 +183,125 @@ function createSeparationFunction(A, B, gjk, t) {
 
 /**
  * @param {SeparationFunction} f
+ * @param {import("./index.js").Object} A
+ * @param {import("./index.js").Object} B
  * @param {Number} t
  */
-function findMinSeparation(f, t) {
+function findMinSeparation(f, A, B, t) {
 	const output = {};
-	const transformA = f.A.at(t);
-	const transformB = f.B.at(t);
-	const rotationA = f.A.rotationAt(t);
-	const rotationB = f.B.rotationAt(t);
+	const transformA = A.at(t);
+	const transformB = B.at(t);
+	const rotationA = Matrix3.rotation(A.rotation + A.angularVelocity * t);
+	const rotationB = Matrix3.rotation(B.rotation + B.angularVelocity * t);
+	const inverseRotationA = Matrix3.rotation(-(A.rotation + A.angularVelocity * t));
+	const inverseRotationB = Matrix3.rotation(-(B.rotation + B.angularVelocity * t));
 
 	let normal;
-	let pointA;
-	let pointB;
+	let ab;
 
 	switch (f.type) {
 		case "points": {
 			normal = f.axis;
 
-			const axisA = new Vector2(f.axis).multiplyMatrix(inverse(rotationA));
-			const axisB = negate(f.axis).multiplyMatrix(inverse(rotationB));
+			const axisA = new Vector2(normal).multiplyMatrix(inverseRotationA);
+			const axisB = negate(normal).multiplyMatrix(inverseRotationB);
 
-			output.indexA = f.A.supportBase(axisA);
-			output.indexB = f.B.supportBase(axisB);
+			output.indexA = A.supportBase(axisA);
+			output.indexB = B.supportBase(axisB);
 
-			pointA = new Vector2(f.A.geometry.vertices[output.indexA]).multiplyMatrix(transformA);
-			pointB = new Vector2(f.B.geometry.vertices[output.indexB]).multiplyMatrix(transformB);
+			const pointA = new Vector2(A.geometry.vertices[output.indexA]).multiplyMatrix(transformA);
+			const pointB = new Vector2(B.geometry.vertices[output.indexB]).multiplyMatrix(transformB);
+
+			ab = new Vector2(pointB).subtract(pointA);
 
 			break;
 		}
 		case "edgeA": {
 			normal = new Vector2(f.axis).multiplyMatrix(rotationA);
 
-			const axisB = negate(normal).multiplyMatrix(inverse(rotationB));
+			const d = negate(normal).multiplyMatrix(inverseRotationB);
 
-			output.indexA = -1;
-			output.indexB = f.B.supportBase(axisB);
+			output.indexB = B.supportBase(d);
 
-			pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
-			pointB = new Vector2(f.B.geometry.vertices[output.indexB]).multiplyMatrix(transformB);
+			const pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
+			const pointB = new Vector2(B.geometry.vertices[output.indexB]).multiplyMatrix(transformB);
+
+			ab = new Vector2(pointB).subtract(pointA);
 
 			break;
 		}
 		case "edgeB": {
 			normal = new Vector2(f.axis).multiplyMatrix(rotationB);
 
-			const axisA = negate(normal).multiplyMatrix(inverse(rotationA));
+			const d = negate(normal).multiplyMatrix(inverseRotationA);
 
-			output.indexA = f.A.supportBase(axisA);
-			output.indexB = -1;
+			output.indexA = A.supportBase(d);
 
-			pointA = new Vector2(f.localPoint).multiplyMatrix(transformB);
-			pointB = new Vector2(f.A.geometry.vertices[output.indexA]).multiplyMatrix(transformA);
+			const pointA = new Vector2(f.localPoint).multiplyMatrix(transformB);
+			const pointB = new Vector2(A.geometry.vertices[output.indexA]).multiplyMatrix(transformA);
+
+			ab = new Vector2(pointB).subtract(pointA);
 
 			break;
 		}
 	}
 
-	output.separation = dot(new Vector2(pointB).subtract(pointA), normal);
+	output.separation = dot(ab, normal);
 
 	return output;
 }
 
 /**
  * @param {SeparationFunction} f
+ * @param {import("./index.js").Object} A
+ * @param {import("./index.js").Object} B
  * @param {Number} indexA
  * @param {Number} indexB
  * @param {Number} t
  */
-function evaluateSeparation(f, indexA, indexB, t) {
-	const transformA = f.A.at(t);
-	const transformB = f.B.at(t);
+function evaluateSeparation(f, A, B, indexA, indexB, t) {
+	const transformA = A.at(t);
+	const transformB = B.at(t);
 
 	let normal;
-	let pointA;
-	let pointB;
+	let a;
+	let b;
 
 	switch (f.type) {
 		case "points":
 			normal = f.axis;
-			pointA = new Vector2(f.A.geometry.vertices[indexA]).multiplyMatrix(transformA);
-			pointB = new Vector2(f.B.geometry.vertices[indexB]).multiplyMatrix(transformB);
+			a = new Vector2(A.geometry.vertices[indexA]).multiplyMatrix(transformA);
+			b = new Vector2(B.geometry.vertices[indexB]).multiplyMatrix(transformB);
 
 			break;
 		case "edgeA": {
-			const rotationA = f.A.rotationAt(t);
+			const rotationA = Matrix3.rotation(A.rotation + A.angularVelocity * t);
 
 			normal = new Vector2(f.axis).multiplyMatrix(rotationA);
-			pointA = new Vector2(f.localPoint).multiplyMatrix(transformA);
-			pointB = new Vector2(f.B.geometry.vertices[indexB]).multiplyMatrix(transformB);
+			a = new Vector2(f.localPoint).multiplyMatrix(transformA);
+			b = new Vector2(B.geometry.vertices[indexB]).multiplyMatrix(transformB);
 
 			break;
 		}
 		case "edgeB": {
-			const rotationB = f.B.rotationAt(t);
+			const rotationB = Matrix3.rotation(B.rotation + B.angularVelocity * t);
 
 			normal = new Vector2(f.axis).multiplyMatrix(rotationB);
-			pointA = new Vector2(f.localPoint).multiplyMatrix(transformB);
-			pointB = new Vector2(f.A.geometry.vertices[indexA]).multiplyMatrix(transformA);
+			a = new Vector2(f.localPoint).multiplyMatrix(transformB);
+			b = new Vector2(A.geometry.vertices[indexA]).multiplyMatrix(transformA);
 
 			break;
 		}
-		default:
-			assert(false);
-
-			break;
 	}
 
-	return dot(new Vector2(pointB).subtract(pointA), normal);
+	return dot(new Vector2(b).subtract(a), normal);
 }
 
 /**
  * @param {import("./math/index.js").Vector2} v
- * @param {Number} s
  */
-function crossVS(v, s) {
-	return new Vector2(s * v.y, -s * v.x);
+function perpendicularRight(v) {
+	return new Vector2(v.y, -v.x);
 }
 
 /**
@@ -360,33 +345,31 @@ function evaluateContinuousCollision(A, B, scene) {
 
 			// console.error("Shapes are overlapping.");
 
-			break;
+			return output;
 		}
 
 		if (gjk.distance <= target + tolerance) {
 			output.state = "hit";
 			output.fraction = t0;
 
-			break;
+			return output;
 		}
 
 		const f = createSeparationFunction(A, B, gjk, t0);
 
 		let t1 = 1;
-		let done = false;
 		let pushBackIterations = 0;
 
 		while (true) {
-			const separationOutput = findMinSeparation(f, t1);
+			const separationOutput = findMinSeparation(f, A, B, t1);
 			let s1 = separationOutput.separation;
 
 			// Is the configuration separated at t1?
 			if (s1 > target + tolerance) {
 				output.state = "separated";
 				output.fraction = 1;
-				done = true;
 
-				break;
+				return output;
 			}
 
 			// Has the separation reached tolerance?
@@ -397,26 +380,24 @@ function evaluateContinuousCollision(A, B, scene) {
 			}
 
 			// Compute the initial separation of the witness points.
-			let s0 = evaluateSeparation(f, separationOutput.indexA, separationOutput.indexB, t0);
+			let s0 = evaluateSeparation(f, A, B, separationOutput.indexA, separationOutput.indexB, t0);
 
 			// Check for initial overlap. This might happen if the root finder runs out of iterations.
 			if (s0 < target - tolerance) {
 				output.state = "failed";
 				output.fraction = t0;
-				done = true;
 
 				console.error("Initial overlap found.");
 
-				break;
+				return output;
 			}
 
 			// Check for touching.
 			if (s0 <= target + tolerance) {
 				output.state = "hit";
 				output.fraction = t0;
-				done = true;
 
-				break;
+				return output;
 			}
 
 			// Compute root.
@@ -438,7 +419,7 @@ function evaluateContinuousCollision(A, B, scene) {
 
 				rootFinderIterations++;
 
-				const s = evaluateSeparation(f, separationOutput.indexA, separationOutput.indexB, t);
+				const s = evaluateSeparation(f, A, B, separationOutput.indexA, separationOutput.indexB, t);
 
 				if (abs(s - target) < tolerance) {
 					t1 = t;
@@ -467,20 +448,14 @@ function evaluateContinuousCollision(A, B, scene) {
 			}
 		}
 
-		if (done) {
-			break;
-		}
-
-		// Root finder got stuck.
 		if (distanceIterations == DISTANCE_MAX_ITERATIONS) {
+			// The root finder reached the iteration limit.
 			output.state = "failed";
 			output.fraction = t0;
 
-			console.error("Root finder failure.");
+			console.error("Root finder error.");
 
-			break;
+			return output;
 		}
 	}
-
-	return output;
 }
