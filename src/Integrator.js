@@ -1,9 +1,10 @@
-import {abs, dot, inverse, Matrix3, negate, Vector2} from "./math/index.js";
+import {abs, dot, Matrix3, negate, Vector2} from "./math/index.js";
 
 import {assert, GJK} from "../public/GJK.js";
 
 const DISTANCE_MAX_ITERATIONS = 20;
 const MAX_POLYGON_VERTICES = 8;
+const ROOT_FINDER_ITERATION_LIMIT = 50;
 
 /**
  * @typedef {"points"|"edgeA"|"edgeB"} SeparationType
@@ -17,7 +18,7 @@ const MAX_POLYGON_VERTICES = 8;
  */
 
 /**
- * @typedef {"undetermined"|"hit"|"failed"|"separated"|"overlapped"} ContinuousCollisionState
+ * @typedef {"undetermined"|"hit"|"unresolved_root"|"separated"|"overlapped"} ContinuousCollisionState
  */
 
 /**
@@ -34,6 +35,8 @@ export class Integrator {
 	 * @param {Number} frameIndex
 	 */
 	update(scene, frameIndex) {
+		// const fixedDeltaTime = 0.0060606060606060606;
+
 		const objects = scene.getObjects();
 
 		if (!this.#integrationEnabled) {
@@ -132,7 +135,7 @@ function createSeparationFunction(A, B, gjk, t) {
 		const pointA = new Vector2(localPointA).multiplyMatrix(transformA);
 		const pointB = new Vector2(localPointB).multiplyMatrix(transformB);
 
-		f.axis = new Vector2(pointB).subtract(pointA);//.normalize();
+		f.axis = new Vector2(pointB).subtract(pointA);
 		f.localPoint = new Vector2(0, 0);
 
 		return f;
@@ -263,38 +266,38 @@ function evaluateSeparation(f, A, B, indexA, indexB, t) {
 	const transformA = A.at(t);
 	const transformB = B.at(t);
 
-	let normal;
 	let a;
 	let b;
+	let d;
 
 	switch (f.type) {
 		case "points":
-			normal = f.axis;
 			a = new Vector2(A.geometry.vertices[indexA]).multiplyMatrix(transformA);
 			b = new Vector2(B.geometry.vertices[indexB]).multiplyMatrix(transformB);
+			d = f.axis;
 
 			break;
 		case "edgeA": {
 			const rotationA = Matrix3.rotation(A.rotation + A.angularVelocity * t);
 
-			normal = new Vector2(f.axis).multiplyMatrix(rotationA);
 			a = new Vector2(f.localPoint).multiplyMatrix(transformA);
 			b = new Vector2(B.geometry.vertices[indexB]).multiplyMatrix(transformB);
+			d = new Vector2(f.axis).multiplyMatrix(rotationA);
 
 			break;
 		}
 		case "edgeB": {
 			const rotationB = Matrix3.rotation(B.rotation + B.angularVelocity * t);
 
-			normal = new Vector2(f.axis).multiplyMatrix(rotationB);
 			a = new Vector2(f.localPoint).multiplyMatrix(transformB);
 			b = new Vector2(A.geometry.vertices[indexA]).multiplyMatrix(transformA);
+			d = new Vector2(f.axis).multiplyMatrix(rotationB);
 
 			break;
 		}
 	}
 
-	return dot(new Vector2(b).subtract(a), normal);
+	return dot(new Vector2(b).subtract(a), d);
 }
 
 /**
@@ -382,12 +385,11 @@ function evaluateContinuousCollision(A, B, scene) {
 			// Compute the initial separation of the witness points.
 			let s0 = evaluateSeparation(f, A, B, separationOutput.indexA, separationOutput.indexB, t0);
 
-			// Check for initial overlap. This might happen if the root finder runs out of iterations.
 			if (s0 < target - tolerance) {
-				output.state = "failed";
+				// If the root finder runs out of iterations,
+				// this could mean that there is an initial overlap.
+				output.state = "unresolved_root";
 				output.fraction = t0;
-
-				console.error("Initial overlap found.");
 
 				return output;
 			}
@@ -409,11 +411,11 @@ function evaluateContinuousCollision(A, B, scene) {
 				let t;
 
 				if (rootFinderIterations & 1) {
-					// False position
+					// Use false position.
 					t = a0 + (target - s0) * (a1 - a0) / (s1 - s0);
 				}
 				else {
-					// Bisection
+					// Use bisection.
 					t = (a0 + a1) * 0.5;
 				}
 
@@ -436,24 +438,23 @@ function evaluateContinuousCollision(A, B, scene) {
 					s1 = s;
 				}
 
-				if (rootFinderIterations == 50) {
+				if (rootFinderIterations >= ROOT_FINDER_ITERATION_LIMIT) {
 					break;
 				}
 			}
 
 			pushBackIterations++;
 
-			if (pushBackIterations == MAX_POLYGON_VERTICES) {
+			// In my tests pushBackIterations is never higher than 1.
+			if (pushBackIterations >= MAX_POLYGON_VERTICES) {
 				break;
 			}
 		}
 
-		if (distanceIterations == DISTANCE_MAX_ITERATIONS) {
+		if (distanceIterations >= DISTANCE_MAX_ITERATIONS) {
 			// The root finder reached the iteration limit.
-			output.state = "failed";
+			output.state = "unresolved_root";
 			output.fraction = t0;
-
-			console.error("Root finder error.");
 
 			return output;
 		}

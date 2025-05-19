@@ -40,8 +40,6 @@ triangle.label = "Triangle";
 triangle.position.set(new Vector2(0, 1.957));
 triangle.rotation = radians(-30);
 triangle.angularVelocity = radians(0.4617);
-// triangle.angularVelocity = radians(32.26);
-// triangle.angularVelocity = radians(70);
 
 // triangle.rotation += triangle.angularVelocity * 0.78759765625;
 // triangle.angularVelocity = 0;
