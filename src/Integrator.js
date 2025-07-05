@@ -135,7 +135,7 @@ function createSeparationFunction(A, B, gjk, t) {
 		const pointA = new Vector2(localPointA).multiplyMatrix(transformA);
 		const pointB = new Vector2(localPointB).multiplyMatrix(transformB);
 
-		f.axis = new Vector2(pointB).subtract(pointA);
+		f.axis = new Vector2(pointB).subtract(pointA).normalize();
 		f.localPoint = new Vector2(0, 0);
 
 		return f;
