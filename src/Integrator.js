@@ -1,5 +1,4 @@
 import {abs, dot, Matrix3, negate, Vector2} from "./math/index.js";
-
 import {assert, GJK} from "../public/GJK.js";
 
 const DISTANCE_MAX_ITERATIONS = 20;
@@ -43,8 +42,8 @@ export class Integrator {
 			return;
 		}
 
-		for (let i = 0; i < objects.length - 1; i++) {
-			for (let j = i + 1; j < objects.length; j++) {
+		for (let i = 0; i < objects.length - 1; i += 1) {
+			for (let j = i + 1; j < objects.length; j += 1) {
 				const A = objects[i];
 				const B = objects[j];
 
@@ -330,7 +329,7 @@ function evaluateContinuousCollision(A, B, scene) {
 
 	let distanceIterations = 0;
 
-	while (true) {
+	while (distanceIterations < DISTANCE_MAX_ITERATIONS) {
 		const transformA = A.at(t0);
 		const transformB = B.at(t0);
 		const gjk = GJK(A, B, transformA, transformB);
@@ -339,7 +338,7 @@ function evaluateContinuousCollision(A, B, scene) {
 			scene.setGJKResponse(gjk);
 		}
 
-		distanceIterations++;
+		distanceIterations += 1;
 
 		// If the shapes are overlapped, we give up on continuous collision.
 		if (gjk.distance <= 0) {
@@ -363,7 +362,7 @@ function evaluateContinuousCollision(A, B, scene) {
 		let t1 = 1;
 		let pushBackIterations = 0;
 
-		while (true) {
+		while (pushBackIterations < MAX_POLYGON_VERTICES) {
 			const separationOutput = findMinSeparation(f, A, B, t1);
 			let s1 = separationOutput.separation;
 
@@ -407,7 +406,7 @@ function evaluateContinuousCollision(A, B, scene) {
 			let a1 = t1;
 			let rootFinderIterations = 0;
 
-			while (true) {
+			while (rootFinderIterations < ROOT_FINDER_ITERATION_LIMIT) {
 				let t;
 
 				if (rootFinderIterations & 1) {
@@ -419,7 +418,7 @@ function evaluateContinuousCollision(A, B, scene) {
 					t = (a0 + a1) * 0.5;
 				}
 
-				rootFinderIterations++;
+				rootFinderIterations += 1;
 
 				const s = evaluateSeparation(f, A, B, separationOutput.indexA, separationOutput.indexB, t);
 
@@ -437,26 +436,14 @@ function evaluateContinuousCollision(A, B, scene) {
 					a1 = t;
 					s1 = s;
 				}
-
-				if (rootFinderIterations >= ROOT_FINDER_ITERATION_LIMIT) {
-					break;
-				}
 			}
 
-			pushBackIterations++;
-
-			// In my tests pushBackIterations is never higher than 1.
-			if (pushBackIterations >= MAX_POLYGON_VERTICES) {
-				break;
-			}
-		}
-
-		if (distanceIterations >= DISTANCE_MAX_ITERATIONS) {
-			// The root finder reached the iteration limit.
-			output.state = "unresolved_root";
-			output.fraction = t0;
-
-			return output;
+			pushBackIterations += 1;
 		}
 	}
+
+	output.state = "unresolved_root";
+	output.fraction = t0;
+
+	return output;
 }
