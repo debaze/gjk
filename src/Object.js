@@ -3,9 +3,14 @@ import {dot, Matrix3, negate, Vector2} from "./math/index.js";
 
 export class Object {
 	#position = new Vector2(0, 0);
+
+	// In radians.
 	#rotation = 0;
+
 	#scale = new Vector2(1, 1);
 	#transform = Matrix3.identity();
+
+	// The sum of the forces acting on the object.
 	#force = new Vector2(0, 0);
 
 	#linearVelocity = new Vector2(0, 0);
@@ -15,6 +20,14 @@ export class Object {
 
 	#geometry;
 	#material;
+
+	// In kg.
+	#inverseMass = 1;
+
+	// Coefficient of restitution (between 0 and 1).
+	// 0 means an inelastic collision (no bounces).
+	// 1 means an elastic collision.
+	#restitution = 1.0;
 
 	label = "Untitled Object";
 
@@ -125,6 +138,25 @@ export class Object {
 
 	get material() {
 		return this.#material;
+	}
+
+	get inverseMass() {
+		return this.#inverseMass;
+	}
+
+	/**
+	 * @param {Number} mass
+	 */
+	set mass(mass) {
+		this.#inverseMass = 1 / mass;
+	}
+
+	get restitution() {
+		return this.#restitution;
+	}
+
+	set restitution(restitution) {
+		this.#restitution = restitution;
 	}
 
 	updateTransform() {

@@ -81,8 +81,8 @@ cube2.linearVelocity.set(new Vector2(-0.02, 0.02));
 cube2.updateTransform();
 
 const scene = new Scene([
-	polygon,
-	triangle,
+	cube1,
+	cube2,
 ]);
 
 application.setScene(scene);

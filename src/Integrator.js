@@ -52,44 +52,38 @@ export class Integrator {
 				advanceSimulation(A, output.fraction);
 				advanceSimulation(B, output.fraction);
 
-				/*if (output.state === "hit") {
-					const gjk = GJK(A, B, A.transform, B.transform);
+				if (output.state === "hit") {
+					// const gjk = GJK(A, B, A.transform, B.transform);
 					const collisionNormal = new Vector2(B.position).subtract(A.position).normalize();
+					const velocityAlongNormal = dot(new Vector2(B.linearVelocity).subtract(A.linearVelocity), collisionNormal);
 
-					// The coefficient of restitution must at least be > 0.25 to separate the shapes.
-					const CrA = 1;
-					const CrB = 1;
-
-					const mA = 1;
-					const mB = 1;
-
-					const vA_vB_n = dot(new Vector2(A.linearVelocity).subtract(B.linearVelocity), collisionNormal);
-					const invmA_invmB = 1 / mA + 1 / mB;
-
-					// Linear impulse.
-					{
-						const jA = (-(1 + CrA) * vA_vB_n) / invmA_invmB;
-						const jB = (-(1 + CrB) * vA_vB_n) / invmA_invmB;
-
-						const impA = new Vector2(collisionNormal).multiplyScalar(jA / mA);
-						const impB = new Vector2(collisionNormal).multiplyScalar(-jB / mB);
-
-						A.linearVelocity.add(impA);
-						B.linearVelocity.add(impB);
+					if (velocityAlongNormal > 0) {
+						return;
 					}
 
-					// Angular impulse.
+					const Cr = Math.min(A.restitution, B.restitution);
+
+					// Apply linear impulse.
 					{
+						const j = -(1 + Cr) * velocityAlongNormal / (A.inverseMass + B.inverseMass);
+						const impulse = new Vector2(collisionNormal).multiplyScalar(j);
+
+						A.linearVelocity.subtract(impulse);
+						B.linearVelocity.add(impulse);
+					}
+
+					// TODO: Apply angular impulse.
+					/* {
 						const rA = distance(gjk.closest1, A.geometry.centerOfMass);
 						const rB = distance(gjk.closest2, B.geometry.centerOfMass);
 
 						let jA_div = new Vector2(collisionNormal).multiplyScalar(rA);
-						const jA = (-(1 + CrA) * vA_vB_n) / (invmA_invmB + dot(jA_div, collisionNormal));
-					}
+						const jA = (-(1 + CrA) * velocityAlongNormal) / (invmA_invmB + dot(jA_div, collisionNormal));
+					} */
 
 					advanceSimulation(A, 1 - output.fraction);
 					advanceSimulation(B, 1 - output.fraction);
-				}*/
+				}
 			}
 		}
 	}
